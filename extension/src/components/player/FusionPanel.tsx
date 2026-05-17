@@ -3,6 +3,7 @@ import OBR from '@owlbear-rodeo/sdk'
 import { useFusion } from '../../hooks/useFusion'
 import { supabase } from '../../lib/supabase'
 import { rollPool, highest, secondHighest, getOutcome, outcomeLabel, isResonance, countSixes, collateralResult, collateralLabel } from '../../lib/dice'
+import { statAdvanceCost, requiresSignificantMoment } from '../../lib/advancement'
 import type { NPC } from '../../lib/character-defaults'
 import type { FusionSheet } from '../../types/fusion'
 import type { ChatMessage } from '../../types/chat'
@@ -84,6 +85,8 @@ function NewFusionForm({
       signatureMove2: move2.trim(),
       relationshipNote: relNote.trim(),
       notes: '',
+      xp: 0,
+      significantMoments: [],
       createdAt: Date.now(),
     })
   }
@@ -149,7 +152,7 @@ function NewFusionForm({
 
 // ── Fusion sheet view (used both inline and in the popover) ──────────────────
 
-type FusionTab = 'roll' | 'moves' | 'story'
+type FusionTab = 'roll' | 'moves' | 'story' | 'advance'
 
 export function FusionSheetView({
   fusion, onUpdate, onUpdateHarmony, onClose, onRoll,
@@ -189,10 +192,6 @@ export function FusionSheetView({
     onRoll({ type: 'roll_pool', rollLabel: `${fusion.name} — ${activeStatDef.name}`, dice, highest: high, outcome, isResonance: res, collateral: secondHighest(dice) })
   }
 
-  function adjStat(idx: 1 | 2 | 3, delta: number) {
-    const key = `stat${idx}Value` as 'stat1Value' | 'stat2Value' | 'stat3Value'
-    onUpdate({ ...fusion, stats: { ...fusion.stats, [key]: Math.max(0, Math.min(5, fusion.stats[key] + delta)) } })
-  }
 
   const taText = 'w-full bg-sl-bg border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent resize-none'
 
@@ -262,7 +261,7 @@ export function FusionSheetView({
 
       {/* Tabs */}
       <div className="shrink-0 flex border-b border-sl-border">
-        {(['roll', 'moves', 'story'] as FusionTab[]).map(t => (
+        {(['roll', 'moves', 'story', 'advance'] as FusionTab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-1.5 text-xs font-mono capitalize transition-colors
               ${tab === t ? 'text-sl-accent border-b-2 border-sl-accent' : 'text-sl-muted hover:text-sl-text'}`}>
@@ -290,14 +289,6 @@ export function FusionSheetView({
               ))}
             </div>
 
-            {activeStat && (
-              <div className="flex items-center gap-2 bg-sl-surface border border-sl-border rounded px-3 py-2">
-                <span className="text-xs text-sl-muted flex-1">Advance: {activeStatDef?.name}</span>
-                <button onClick={() => adjStat(activeStat, -1)} className="w-6 h-6 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-sm">−</button>
-                <span className="w-5 text-center font-bold text-sl-text text-sm">{activeStatDef?.val}</span>
-                <button onClick={() => adjStat(activeStat, +1)} className="w-6 h-6 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-sm">+</button>
-              </div>
-            )}
 
             <div className="flex items-center gap-3 border-t border-sl-border pt-2">
               <div className="flex-1">
@@ -385,6 +376,84 @@ export function FusionSheetView({
             </div>
           </>
         )}
+
+        {tab === 'advance' && (() => {
+          const fusionXp = fusion.xp ?? 0
+          const sigMoments = fusion.significantMoments ?? []
+          const statDefs = [
+            { idx: 1 as const, name: fusion.stats.stat1Name, val: fusion.stats.stat1Value, valKey: 'stat1Value' as const },
+            { idx: 2 as const, name: fusion.stats.stat2Name, val: fusion.stats.stat2Value, valKey: 'stat2Value' as const },
+            { idx: 3 as const, name: fusion.stats.stat3Name, val: fusion.stats.stat3Value, valKey: 'stat3Value' as const },
+          ].filter(s => s.name.trim())
+          return (
+            <div className="space-y-4">
+              {/* XP counter */}
+              <div className="flex items-center justify-between bg-sl-surface border border-sl-border rounded px-3 py-2">
+                <div>
+                  <p className="text-xs font-semibold text-sl-text">Fusion XP</p>
+                  <p className="text-xs text-sl-muted">Earned only through moments while fused</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => onUpdate({ ...fusion, xp: Math.max(0, fusionXp - 1) })}
+                    className="w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-xs">−</button>
+                  <span className="text-sm font-bold text-sl-accent w-5 text-center">{fusionXp}</span>
+                  <button onClick={() => onUpdate({ ...fusion, xp: fusionXp + 1 })}
+                    className="w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-xs">+</button>
+                </div>
+              </div>
+              {/* Stats */}
+              <div>
+                <p className="text-xs text-sl-muted mb-1.5 font-semibold">Stats</p>
+                <div className="space-y-1.5">
+                  {statDefs.map(s => {
+                    const atCeil    = s.val >= 5
+                    const cost      = statAdvanceCost(s.val)
+                    const needsSig  = requiresSignificantMoment('form', s.val) // reuse curve, no optionalZero for fusions
+                    const sigOk     = sigMoments.includes(s.idx)
+                    const canAdv    = !atCeil && fusionXp >= cost && (!needsSig || sigOk)
+                    return (
+                      <div key={s.idx} className="bg-sl-bg border border-sl-border rounded px-2.5 py-2 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-sl-text flex-1">{s.name}</span>
+                          <span className="text-xs text-sl-muted">
+                            {s.val}/5{atCeil ? ' (max)' : ` → ${s.val + 1} · ${cost} XP`}
+                          </span>
+                          <button disabled={!canAdv} onClick={() => {
+                            onUpdate({ ...fusion,
+                              stats: { ...fusion.stats, [s.valKey]: s.val + 1 },
+                              xp: fusionXp - cost,
+                              significantMoments: sigMoments.filter(m => m !== s.idx),
+                            })
+                          }}
+                            className={`text-xs px-2 py-0.5 rounded whitespace-nowrap transition-all
+                              ${canAdv ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90 active:scale-95'
+                                : 'bg-sl-surface text-sl-muted border border-sl-border opacity-60 cursor-not-allowed'}`}>
+                            {atCeil ? 'Max' : '+1'}
+                          </button>
+                          <button onClick={() => onUpdate({ ...fusion, stats: { ...fusion.stats, [s.valKey]: Math.max(0, s.val - 1) } })}
+                            className="w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-xs">−</button>
+                        </div>
+                        {needsSig && !atCeil && (
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" checked={sigOk}
+                              onChange={() => onUpdate({ ...fusion, significantMoments: sigOk ? sigMoments.filter(m => m !== s.idx) : [...sigMoments, s.idx] })}
+                              className="accent-[var(--sl-accent)] w-3 h-3" />
+                            <span className="text-xs text-sl-muted">Significant story moment confirmed (GM) — required for 4→5</span>
+                          </label>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {/* Cost reference */}
+              <div className="border-t border-sl-border pt-2 text-xs text-sl-muted font-mono space-y-0.5">
+                <div className="flex gap-3"><span>0→1: 1 XP</span><span>1→2: 1 XP</span><span>2→3: 2 XP</span></div>
+                <div className="flex gap-3"><span>3→4: 2 XP</span><span>4→5: 3 XP ★</span></div>
+              </div>
+            </div>
+          )
+        })()}
 
         {tab === 'story' && (
           <>

@@ -19,5 +19,7 @@ export interface FusionSheet {
   signatureMove2: string // relational
   relationshipNote: string
   notes: string
+  xp: number             // fusion's own XP track (earned while fused only)
+  significantMoments?: number[]  // stat indices (1,2,3) where sig. moment confirmed
   createdAt: number
 }

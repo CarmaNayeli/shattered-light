@@ -108,6 +108,8 @@ export function CharacterCreation({ onComplete }: Props) {
       archetypeShadowComplete: false,
       markedStats: [],
       markedBondIds: [],
+      xp: 0,
+      significantMoments: [],
       backstory: {
         madeFor:         backstory.madeFor ?? '',
         rebellionBelief: backstory.rebellionBelief ?? '',

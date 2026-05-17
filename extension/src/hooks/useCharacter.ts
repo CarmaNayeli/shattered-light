@@ -60,13 +60,14 @@ export function useCharacter(supabaseUserId: string, roomId: string) {
   }
 
   async function persistSlots(slots: (Character | null)[], syncChar: Character | null) {
-    await Promise.all([
+    const [{ error }] = await Promise.all([
       supabase.from('characters').upsert(
         { user_id: supabaseUserId, room_id: roomId, character_data: { slots } },
         { onConflict: 'user_id,room_id' }
       ),
       OBR.player.setMetadata({ sl: syncChar ? toSnapshot(syncChar) : null }),
     ])
+    if (error) console.error('[useCharacter] save failed:', error.message, error)
   }
 
   const saveCharacter = useCallback(async (char: Character, slot: number) => {

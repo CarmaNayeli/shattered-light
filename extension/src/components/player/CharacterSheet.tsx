@@ -3,6 +3,7 @@ import { RollPanel } from './RollPanel'
 import { BondsPanel } from './BondsPanel'
 import { FusionPanel } from './FusionPanel'
 import { STAT_KEYS, STAT_NAMES, getArchetype, getGemType, WEAPON_TAG_LABELS, BACKSTORY_QUESTIONS } from '../../lib/character-defaults'
+import { statAdvanceCost, requiresSignificantMoment, powerAdvanceCost } from '../../lib/advancement'
 import type { Character } from '../../types/character'
 import type { ChatMessage } from '../../types/chat'
 
@@ -196,49 +197,105 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
 
       {/* Advancement */}
       <div className="border border-sl-border rounded p-3 space-y-4">
-        <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Advancement</p>
-
-        {/* Raise a marked stat */}
-        <div>
-          <p className="text-xs text-sl-muted mb-1.5">Raise a marked stat</p>
-          {character.markedStats.length === 0 ? (
-            <p className="text-xs text-sl-muted italic">No stats marked this session. Use the dot beside each stat.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-1.5">
-              {character.markedStats.map(s => {
-                const val     = character.stats[s]
-                const ceiling = archDef.ceilings[s]
-                const atCeil  = val >= ceiling
-                return (
-                  <button key={s} disabled={atCeil}
-                    onClick={() => onUpdate({
-                      ...character,
-                      stats:       { ...character.stats, [s]: val + 1 },
-                      markedStats: character.markedStats.filter(m => m !== s),
-                    })}
-                    className={`flex flex-col items-center p-2 rounded border text-xs transition-all
-                      ${atCeil
-                        ? 'border-sl-border text-sl-muted opacity-50 cursor-not-allowed'
-                        : 'border-sl-accent/50 text-sl-text hover:border-sl-accent hover:bg-sl-accent/10 active:scale-95'
-                      }`}
-                  >
-                    <span className="font-semibold">{STAT_NAMES[s]}</span>
-                    <span className="text-sl-muted">{val}→{atCeil ? val : val + 1}/{ceiling}</span>
-                    {atCeil && <span className="text-sl-danger leading-none mt-0.5">ceiling</span>}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Advancement</p>
+          {/* XP counter */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-sl-muted">XP</span>
+            <button onClick={() => onUpdate({ ...character, xp: Math.max(0, (character.xp ?? 0) - 1) })}
+              className="w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-xs leading-none">−</button>
+            <span className="text-sm font-bold text-sl-accent w-5 text-center">{character.xp ?? 0}</span>
+            <button onClick={() => onUpdate({ ...character, xp: (character.xp ?? 0) + 1 })}
+              className="w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-xs leading-none">+</button>
+          </div>
         </div>
 
-        {/* Unlock a power */}
+        <p className="text-xs text-sl-muted -mt-2">GM awards XP; player can suggest. Spend with GM approval.</p>
+
+        {/* Stat advances */}
         <div>
-          <p className="text-xs text-sl-muted mb-1.5">Unlock a power</p>
-          <div className="space-y-2">
+          <p className="text-xs text-sl-muted mb-1.5 font-semibold">Stats</p>
+          <div className="space-y-1.5">
+            {STAT_KEYS.map(s => {
+              const val      = character.stats[s]
+              const ceiling  = archDef.ceilings[s]
+              const atCeil   = val >= ceiling
+              const cost     = statAdvanceCost(val)
+              const xp       = character.xp ?? 0
+              const needsSig = requiresSignificantMoment(s, val, character.optionalZero)
+              const sigMoments = character.significantMoments ?? []
+              const sigConfirmed = sigMoments.includes(s)
+              const canAdvance = !atCeil && xp >= cost && (!needsSig || sigConfirmed)
+
+              function advanceStat() {
+                if (!canAdvance) return
+                onUpdate({
+                  ...character,
+                  stats: { ...character.stats, [s]: val + 1 },
+                  xp: xp - cost,
+                  significantMoments: sigMoments.filter(m => m !== s),
+                  markedStats: character.markedStats.filter(m => m !== s),
+                })
+              }
+
+              function toggleSig() {
+                onUpdate({
+                  ...character,
+                  significantMoments: sigConfirmed
+                    ? sigMoments.filter(m => m !== s)
+                    : [...sigMoments, s],
+                })
+              }
+
+              return (
+                <div key={s} className="bg-sl-bg border border-sl-border rounded px-2.5 py-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold flex-1 ${character.markedStats.includes(s) ? 'text-sl-accent' : 'text-sl-text'}`}>
+                      {STAT_NAMES[s]}
+                      {character.markedStats.includes(s) && <span className="text-sl-harmony ml-1">●</span>}
+                    </span>
+                    <span className="text-xs text-sl-muted">
+                      {val}/{ceiling}{atCeil ? ' (max)' : ` → ${val + 1} · ${cost} XP`}
+                    </span>
+                    <button
+                      disabled={!canAdvance}
+                      onClick={advanceStat}
+                      className={`text-xs px-2 py-0.5 rounded transition-all whitespace-nowrap
+                        ${canAdvance
+                          ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90 active:scale-95'
+                          : 'bg-sl-surface text-sl-muted border border-sl-border cursor-not-allowed opacity-60'
+                        }`}
+                    >
+                      {atCeil ? 'Max' : `+1`}
+                    </button>
+                  </div>
+                  {needsSig && !atCeil && (
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={sigConfirmed} onChange={toggleSig}
+                        className="accent-[var(--sl-accent)] w-3 h-3" />
+                      <span className="text-xs text-sl-muted">
+                        {val === 0 && character.optionalZero === s
+                          ? 'Particularly significant moment confirmed (GM)'
+                          : 'Significant story moment confirmed (GM) — required for 4→5'}
+                      </span>
+                    </label>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Power unlocks */}
+        <div>
+          <p className="text-xs text-sl-muted mb-1.5 font-semibold">Powers</p>
+          <div className="space-y-1.5">
             {gemDef.developedPowers.map(power => {
               const owned = character.developedPower === power.name
                 || (character.additionalPowers ?? []).includes(power.name)
+              const ownedCount = 1 + (character.additionalPowers?.length ?? 0)
+              const cost = powerAdvanceCost(ownedCount)
+              const xp = character.xp ?? 0
               return (
                 <div key={power.name} className="flex items-start gap-2 p-2 rounded border border-sl-border bg-sl-bg">
                   <div className="flex-1 min-w-0">
@@ -249,19 +306,38 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
                     <span className="shrink-0 text-xs text-sl-success pt-0.5">✓</span>
                   ) : (
                     <button
+                      disabled={xp < cost}
                       onClick={() => onUpdate({
                         ...character,
+                        xp: xp - cost,
                         additionalPowers: [...(character.additionalPowers ?? []), power.name],
                       })}
-                      className="shrink-0 text-xs px-2 py-0.5 rounded bg-sl-accent text-sl-accent-fg hover:opacity-90 whitespace-nowrap"
+                      className={`shrink-0 text-xs px-2 py-0.5 rounded whitespace-nowrap transition-all
+                        ${xp >= cost
+                          ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90'
+                          : 'bg-sl-surface text-sl-muted border border-sl-border opacity-60 cursor-not-allowed'
+                        }`}
                     >
-                      Unlock
+                      {cost} XP
                     </button>
                   )}
                 </div>
               )
             })}
           </div>
+        </div>
+
+        {/* Cost reference */}
+        <div className="border-t border-sl-border pt-2 text-xs text-sl-muted space-y-0.5 font-mono">
+          <p className="text-sl-muted uppercase tracking-wide mb-1">Cost reference</p>
+          <div className="flex gap-3">
+            <span>0→1: 1 XP</span><span>1→2: 1 XP</span><span>2→3: 2 XP</span>
+          </div>
+          <div className="flex gap-3">
+            <span>3→4: 2 XP</span><span>4→5: 3 XP ★</span>
+          </div>
+          <p className="text-sl-muted/70">★ requires significant moment · ★★ forced-zero first step also gated</p>
+          <p className="text-sl-muted/70">Powers: 1st=2 XP, 2nd=3 XP, 3rd=4 XP…</p>
         </div>
 
         {/* Clear session marks */}

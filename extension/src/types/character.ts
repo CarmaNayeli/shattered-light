@@ -59,7 +59,9 @@ export interface Character {
     archetypeQ3?: string   // Rebel only: the open question
   }
   notes: string
-  additionalPowers?: string[]   // powers unlocked through advancement
+  xp: number
+  significantMoments?: StatKey[]  // stats where a sig. moment has been GM-confirmed, ready to spend
+  additionalPowers?: string[]
   portrait?: string
 }
 
