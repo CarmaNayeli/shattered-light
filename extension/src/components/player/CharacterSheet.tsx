@@ -302,34 +302,54 @@ function AdvanceTab({ character, onUpdate }: { character: Character; onUpdate: (
       </div>
 
       {/* Powers */}
-      <div>
-        <p className="text-xs text-sl-muted mb-1.5 font-semibold">Powers</p>
-        <div className="space-y-1.5">
-          {gemDef.developedPowers.map(power => {
-            const owned      = character.developedPower === power.name || (character.additionalPowers ?? []).includes(power.name)
-            const ownedCount = 1 + (character.additionalPowers?.length ?? 0)
-            const cost       = powerAdvanceCost(ownedCount)
-            return (
-              <div key={power.name} className="flex items-start gap-2 p-2 rounded border border-sl-border bg-sl-bg">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-sl-text">{power.name}</p>
-                  <p className="text-xs text-sl-muted leading-snug">{power.desc}</p>
-                </div>
-                {owned ? (
-                  <span className="shrink-0 text-xs text-sl-success pt-0.5">✓</span>
-                ) : (
-                  <button disabled={xp < cost}
-                    onClick={() => onUpdate({ ...character, xp: xp - cost, additionalPowers: [...(character.additionalPowers ?? []), power.name] })}
-                    className={`shrink-0 text-xs px-2 py-0.5 rounded whitespace-nowrap transition-all
-                      ${xp >= cost ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90' : 'bg-sl-surface text-sl-muted border border-sl-border opacity-60 cursor-not-allowed'}`}>
-                    {cost} XP
-                  </button>
-                )}
+      {(() => {
+        const allUnlockable = [
+          ...gemDef.developedPowers.filter(p => p.name !== character.developedPower),
+          ...gemDef.advancedPowers,
+        ]
+        const owned = (name: string) => character.developedPower === name || (character.additionalPowers ?? []).includes(name)
+        const ownedCount = 1 + (character.additionalPowers?.length ?? 0)
+        const standard = allUnlockable.filter(p => !p.advanced)
+        const advanced = allUnlockable.filter(p => p.advanced)
+        function PowerRow({ power }: { power: typeof allUnlockable[0] }) {
+          const isOwned = owned(power.name)
+          const cost    = power.advanced ? powerAdvanceCost(ownedCount) * 2 : powerAdvanceCost(ownedCount)
+          return (
+            <div className="flex items-start gap-2 p-2 rounded border border-sl-border bg-sl-bg">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-sl-text">{power.name}</p>
+                <p className="text-xs text-sl-muted leading-snug">{power.desc}</p>
               </div>
-            )
-          })}
-        </div>
-      </div>
+              {isOwned ? (
+                <span className="shrink-0 text-xs text-sl-success pt-0.5">✓</span>
+              ) : (
+                <button disabled={xp < cost}
+                  onClick={() => onUpdate({ ...character, xp: xp - cost, additionalPowers: [...(character.additionalPowers ?? []), power.name] })}
+                  className={`shrink-0 text-xs px-2 py-0.5 rounded whitespace-nowrap transition-all
+                    ${xp >= cost ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90' : 'bg-sl-surface text-sl-muted border border-sl-border opacity-60 cursor-not-allowed'}`}>
+                  {cost} XP
+                </button>
+              )}
+            </div>
+          )
+        }
+        return (
+          <div className="space-y-3">
+            {standard.length > 0 && (
+              <div>
+                <p className="text-xs text-sl-muted mb-1.5 font-semibold">Powers</p>
+                <div className="space-y-1.5">{standard.map(p => <PowerRow key={p.name} power={p} />)}</div>
+              </div>
+            )}
+            {advanced.length > 0 && (
+              <div>
+                <p className="text-xs text-sl-muted mb-1.5 font-semibold">Advanced Powers <span className="font-normal opacity-70">(×2 cost · story justification expected)</span></p>
+                <div className="space-y-1.5">{advanced.map(p => <PowerRow key={p.name} power={p} />)}</div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Cost reference */}
       <div className="border-t border-sl-border pt-2 text-xs text-sl-muted font-mono space-y-0.5">
