@@ -59,6 +59,7 @@ export interface Character {
     archetypeQ3?: string   // Rebel only: the open question
   }
   notes: string
+  additionalPowers?: string[]   // powers unlocked through advancement
   portrait?: string
 }
 

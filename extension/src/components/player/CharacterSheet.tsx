@@ -130,19 +130,21 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
         <p className="text-xs text-sl-muted">{gemDef.corePower.desc}</p>
       </div>
 
-      {/* Developed power */}
-      <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
-        <p className="text-xs text-sl-muted font-mono uppercase">Developed Power</p>
-        {(() => {
-          const dev = gemDef.developedPowers.find(p => p.name === character.developedPower)
-          return dev ? (
-            <>
-              <p className="font-semibold text-sl-text">{dev.name}</p>
-              <p className="text-xs text-sl-muted">{dev.desc}</p>
-            </>
-          ) : <p className="text-xs text-sl-muted">{character.developedPower || 'None chosen'}</p>
-        })()}
-      </div>
+      {/* Developed power(s) */}
+      {[character.developedPower, ...(character.additionalPowers ?? [])].filter(Boolean).map(pName => {
+        const def = gemDef.developedPowers.find(p => p.name === pName)
+        return (
+          <div key={pName} className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
+            <p className="text-xs text-sl-muted font-mono uppercase">Developed Power</p>
+            {def ? (
+              <>
+                <p className="font-semibold text-sl-text">{def.name}</p>
+                <p className="text-xs text-sl-muted">{def.desc}</p>
+              </>
+            ) : <p className="text-xs text-sl-muted">{pName}</p>}
+          </div>
+        )
+      })}
 
       {/* Signature move */}
       <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
@@ -190,6 +192,87 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
           className="w-full bg-sl-surface border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent resize-none"
           placeholder="Notes…"
         />
+      </div>
+
+      {/* Advancement */}
+      <div className="border border-sl-border rounded p-3 space-y-4">
+        <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Advancement</p>
+
+        {/* Raise a marked stat */}
+        <div>
+          <p className="text-xs text-sl-muted mb-1.5">Raise a marked stat</p>
+          {character.markedStats.length === 0 ? (
+            <p className="text-xs text-sl-muted italic">No stats marked this session. Use the dot beside each stat.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {character.markedStats.map(s => {
+                const val     = character.stats[s]
+                const ceiling = archDef.ceilings[s]
+                const atCeil  = val >= ceiling
+                return (
+                  <button key={s} disabled={atCeil}
+                    onClick={() => onUpdate({
+                      ...character,
+                      stats:       { ...character.stats, [s]: val + 1 },
+                      markedStats: character.markedStats.filter(m => m !== s),
+                    })}
+                    className={`flex flex-col items-center p-2 rounded border text-xs transition-all
+                      ${atCeil
+                        ? 'border-sl-border text-sl-muted opacity-50 cursor-not-allowed'
+                        : 'border-sl-accent/50 text-sl-text hover:border-sl-accent hover:bg-sl-accent/10 active:scale-95'
+                      }`}
+                  >
+                    <span className="font-semibold">{STAT_NAMES[s]}</span>
+                    <span className="text-sl-muted">{val}→{atCeil ? val : val + 1}/{ceiling}</span>
+                    {atCeil && <span className="text-sl-danger leading-none mt-0.5">ceiling</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Unlock a power */}
+        <div>
+          <p className="text-xs text-sl-muted mb-1.5">Unlock a power</p>
+          <div className="space-y-2">
+            {gemDef.developedPowers.map(power => {
+              const owned = character.developedPower === power.name
+                || (character.additionalPowers ?? []).includes(power.name)
+              return (
+                <div key={power.name} className="flex items-start gap-2 p-2 rounded border border-sl-border bg-sl-bg">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-sl-text">{power.name}</p>
+                    <p className="text-xs text-sl-muted leading-snug">{power.desc}</p>
+                  </div>
+                  {owned ? (
+                    <span className="shrink-0 text-xs text-sl-success pt-0.5">✓</span>
+                  ) : (
+                    <button
+                      onClick={() => onUpdate({
+                        ...character,
+                        additionalPowers: [...(character.additionalPowers ?? []), power.name],
+                      })}
+                      className="shrink-0 text-xs px-2 py-0.5 rounded bg-sl-accent text-sl-accent-fg hover:opacity-90 whitespace-nowrap"
+                    >
+                      Unlock
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Clear session marks */}
+        {character.markedStats.length > 0 && (
+          <button
+            onClick={() => onUpdate({ ...character, markedStats: [], markedBondIds: [] })}
+            className="w-full text-xs text-sl-muted hover:text-sl-text border border-sl-border rounded py-1.5 transition-colors"
+          >
+            Clear session marks
+          </button>
+        )}
       </div>
     </div>
   )
