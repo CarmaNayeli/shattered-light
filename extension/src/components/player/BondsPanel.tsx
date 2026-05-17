@@ -135,6 +135,13 @@ export function BondsPanel({ bonds, roomId, characterName, onChange }: Props) {
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-sm text-sl-accent truncate">{bond.targetName}</span>
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => updateRating(bond.id, Math.max(0, bond.rating - 1))}
+                disabled={bond.rating === 0}
+                title="Decrease bond rating"
+                className="text-xs w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-danger hover:text-sl-danger disabled:opacity-30 transition-colors flex items-center justify-center">
+                −
+              </button>
               <RatingDots rating={bond.rating} onChange={n => updateRating(bond.id, n)} />
               <button onClick={() => setEditing(editing === bond.id ? null : bond.id)}
                 className="text-xs text-sl-muted hover:text-sl-text transition-colors">edit</button>

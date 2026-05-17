@@ -168,6 +168,7 @@ export function FusionSheetView({
   const [lastRoll, setLastRoll]     = useState<{ dice: number[]; label: string } | null>(null)
   const [editing, setEditing]       = useState(false)
   const [editDraft, setEditDraft]   = useState<FusionSheet>(fusion)
+  const [sceneNote, setSceneNote]   = useState('')
 
   function startEdit() { setEditDraft(fusion); setEditing(true) }
   function cancelEdit() { setEditing(false) }
@@ -370,9 +371,30 @@ export function FusionSheetView({
                 <p className="text-xs text-sl-bond italic">"{fusion.relationshipNote}"</p>
               </div>
             )}
-            <div className="border-t border-sl-border pt-3">
-              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Harmony Recovery</p>
-              <p className="text-xs text-sl-muted">Play a connection scene — unfused gems talking, arguing, or doing something meaningful together. Each sincere scene restores one Harmony box.</p>
+            <div className="border-t border-sl-border pt-3 space-y-2">
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Harmony Recovery</p>
+              <p className="text-xs text-sl-muted">Play a connection scene while unfused — talking, arguing, or doing something meaningful together. Each sincere scene (GM's call) restores one Harmony box.</p>
+              <textarea
+                rows={2}
+                value={sceneNote}
+                onChange={e => setSceneNote(e.target.value)}
+                placeholder="Briefly describe the scene (optional)…"
+                className="w-full bg-sl-bg border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-harmony resize-none"
+              />
+              <button
+                disabled={fusion.harmony >= 5}
+                onClick={() => {
+                  const note = sceneNote.trim()
+                  const timestamp = new Date().toLocaleDateString()
+                  const entry = note ? `[Connection scene ${timestamp}] ${note}` : `[Connection scene ${timestamp}]`
+                  const updatedNotes = fusion.notes ? `${fusion.notes}\n${entry}` : entry
+                  onUpdate({ ...fusion, harmony: Math.min(5, fusion.harmony + 1), notes: updatedNotes })
+                  setSceneNote('')
+                }}
+                className="w-full py-1.5 rounded text-xs font-semibold transition-all border
+                  border-sl-harmony text-sl-harmony hover:bg-sl-harmony/10 disabled:opacity-40 disabled:cursor-not-allowed">
+                + Connection Scene {fusion.harmony < 5 ? `(Harmony ${fusion.harmony} → ${fusion.harmony + 1})` : '(Harmony full)'}
+              </button>
             </div>
           </>
         )}

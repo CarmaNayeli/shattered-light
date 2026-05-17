@@ -12,6 +12,7 @@ export interface ArchetypeDef {
   startingMove: string
   startingMoveDesc: string
   shadow: string
+  shadowGate: StatKey | 'all' | null  // which stat(s) can't advance past ceiling until shadow complete
   archetypeQuestions: string[]
 }
 
@@ -26,6 +27,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDef> = {
     startingMove: 'Hold the Line',
     startingMoveDesc: 'Once per session declare a course of action. Every gem who follows adds one bonus die to their first roll in that action. Gems who don\'t follow add nothing — and you know who didn\'t.',
     shadow: 'Resonance cap lifts when someone else is right without you framing it as your decision.',
+    shadowGate: 'resonance',
     archetypeQuestions: [
       'What order did you give that you\'re still second-guessing?',
       'What would it mean to you if the rebellion won but you weren\'t the one who led it there?',
@@ -41,6 +43,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDef> = {
     startingMove: 'First Strike',
     startingMoveDesc: 'When you act before anyone else in a scene — before a plan is formed — roll Form with an extra die. Clean success sets the terms of the conflict. A miss commits everyone before they were ready.',
     shadow: 'Radiance cap lifts when you do something purely expressive with no tactical justification — and it costs you something, even something small.',
+    shadowGate: 'radiance',
     archetypeQuestions: [
       'What order did you carry out that you\'re still carrying?',
       'What does your body know how to do that your mind has decided it won\'t?',
@@ -56,6 +59,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDef> = {
     startingMove: 'Read the Room',
     startingMoveDesc: 'When you enter a new scene, ask the GM one free question about what\'s really happening beneath the surface — an emotional current, a hidden agenda, a structural weakness. No roll required.',
     shadow: 'Resolve cap lifts when the Scholar chooses to fight for something rather than preserve it. Active rather than archival. The choice has to hurt a little.',
+    shadowGate: 'resolve',
     archetypeQuestions: [
       'What do you know that you wish you didn\'t?',
       'What have you been studying that has nothing to do with the rebellion and everything to do with what you\'re afraid of?',
@@ -71,6 +75,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDef> = {
     startingMove: 'Open Channel',
     startingMoveDesc: 'When you attempt to de-escalate through conversation rather than force, roll Resonance with an extra die. On a Resonance result, the enemy tells you something true about themselves or their orders.',
     shadow: 'NPCs may clock the resemblance between your instincts and Pink Diamond\'s. That\'s not a penalty — it\'s a story.',
+    shadowGate: null,
     archetypeQuestions: [
       'When did you last say what you actually meant without calculating the impact first?',
       'What do you understand about Pink Diamond that you\'ve never told the others?',
@@ -86,6 +91,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDef> = {
     startingMove: 'Improvise',
     startingMoveDesc: 'Once per session, when you do something no trained gem of any court would try, roll Radiance instead of whatever stat would normally apply. If it works, it surprises even you.',
     shadow: 'No stat reaches 5 at creation. All ceilings to 5 require the full arc of play to reach — because every point has to be entirely self-built.',
+    shadowGate: 'all',
     archetypeQuestions: [
       'The open question on your sheet — write it here in full. What don\'t you know about yourself yet?',
       'Where did you sleep the first night after you left? Describe it.',

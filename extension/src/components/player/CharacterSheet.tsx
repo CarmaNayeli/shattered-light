@@ -238,7 +238,10 @@ function AdvanceTab({ character, onUpdate }: { character: Character; onUpdate: (
                            : isBeyond ? statBeyondCeilingCost(val)
                            : statAdvanceCost(val) * 3
             const needsSig = !isNormal || requiresSignificantMoment(s, val, character.optionalZero)
-            const canAdv   = xp >= cost && (!needsSig || sigOk)
+            const shadowBlocked = (isBeyond || isUltra)
+              && !character.archetypeShadowComplete
+              && (archDef.shadowGate === s || archDef.shadowGate === 'all')
+            const canAdv   = !shadowBlocked && xp >= cost && (!needsSig || sigOk)
 
             const ceilLabel = isNormal ? `${val}/${ceiling}`
                             : isBeyond ? `${val}/${ceiling} ↑`
@@ -255,6 +258,12 @@ function AdvanceTab({ character, onUpdate }: { character: Character; onUpdate: (
                   <span className="text-xs text-sl-muted">
                     {`→ ${val+1} · ${cost} XP`}{isBeyond ? ' ×2' : isUltra ? ' ×3' : ''}
                   </span>
+                  <button
+                    onClick={() => onUpdate({ ...character, stats: { ...character.stats, [s]: Math.max(0, val - 1) } })}
+                    disabled={val === 0}
+                    className="text-xs w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-danger hover:text-sl-danger disabled:opacity-30 transition-colors flex items-center justify-center shrink-0">
+                    −
+                  </button>
                   <button disabled={!canAdv}
                     onClick={() => canAdv && onUpdate({
                       ...character,
@@ -269,7 +278,10 @@ function AdvanceTab({ character, onUpdate }: { character: Character; onUpdate: (
                     +1
                   </button>
                 </div>
-                {needsSig && (
+                {shadowBlocked && (
+                  <p className="text-xs text-sl-muted/70 italic pl-0.5">{archDef.shadow}</p>
+                )}
+                {!shadowBlocked && needsSig && (
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={sigOk}
                       onChange={() => onUpdate({ ...character, significantMoments: sigOk ? sigMoments.filter(m => m !== s) : [...sigMoments, s] })}
