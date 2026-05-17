@@ -146,7 +146,7 @@ export function PlayerView({ supabaseUserId, playerId, playerName, roomId, userE
           <div className="text-center">
             <p className="text-xs text-sl-muted">
               Full rulebook at{' '}
-              <a href="https://shattered-light-ttrpg.vercel.app/" target="_blank" rel="noreferrer" className="underline hover:text-sl-accent">shattered-light-ttrpg.vercel.app</a>
+              <a href="https://shattered-light.vercel.app/" target="_blank" rel="noreferrer" className="underline hover:text-sl-accent">shattered-light.vercel.app</a>
             </p>
           </div>
 

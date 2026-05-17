@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "manifest_version": 1,
   "description": "Character sheets, dice rolling, and Bond tracking for Shattered Light TTRPG",
-  "icon": "https://shattered-light-ttrpg.vercel.app/app/favicon.svg",
+  "icon": "https://shattered-light.vercel.app/app/favicon.svg",
   "action": {
     "title": "Shattered Light",
-    "icon": "https://shattered-light-ttrpg.vercel.app/app/favicon.svg",
-    "popover": "https://shattered-light-ttrpg.vercel.app/app/",
+    "icon": "https://shattered-light.vercel.app/app/favicon.svg",
+    "popover": "https://shattered-light.vercel.app/app/",
     "height": 650,
     "width": 420
   }

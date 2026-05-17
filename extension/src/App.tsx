@@ -5,7 +5,7 @@ import { PlayerView } from './components/player/PlayerView'
 import { GMView } from './components/gm/GMView'
 import type { User } from '@supabase/supabase-js'
 
-const RESET_REDIRECT = 'https://shattered-light-ttrpg.vercel.app/app/'
+const RESET_REDIRECT = 'https://shattered-light.vercel.app/app/'
 
 type AuthView = 'loading' | 'signin' | 'recovery' | 'ready'
 type AuthMode = 'signin' | 'signup' | 'reset'
