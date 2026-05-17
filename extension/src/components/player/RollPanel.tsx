@@ -36,7 +36,8 @@ export function RollPanel({ character, onRoll }: Props) {
   function handleRoll() {
     if (!activeStat) return
     const pool = poolSize()
-    const dice = rollPool(Math.max(1, pool))
+    if (pool <= 0) return
+    const dice = rollPool(pool)
     const high  = highest(dice)
     const second = secondHighest(dice)
     const outcome = getOutcome(high)
@@ -123,18 +124,22 @@ export function RollPanel({ character, onRoll }: Props) {
       <div className="border-t border-sl-border pt-3">
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            {activeStat ? (
+            {!activeStat && <p className="text-sm text-sl-muted">Select a stat above</p>}
+            {activeStat && poolSize() > 0 && (
               <p className="text-sm text-sl-text">
                 Roll <span className="font-bold text-sl-accent">{poolSize()}d6</span>
                 {activeBond && <span className="text-sl-muted"> ({effectiveStat(activeStat)} stat + {bondDice()} bond)</span>}
               </p>
-            ) : (
-              <p className="text-sm text-sl-muted">Select a stat above</p>
+            )}
+            {activeStat && poolSize() === 0 && (
+              <p className="text-sm text-sl-danger">
+                Stat is 0 — add a Bond to roll
+              </p>
             )}
           </div>
           <button
             onClick={handleRoll}
-            disabled={!activeStat}
+            disabled={!activeStat || poolSize() === 0}
             className="px-4 py-2 rounded bg-sl-accent text-sl-accent-fg text-sm font-bold disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all"
           >
             Roll
