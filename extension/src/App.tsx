@@ -3,6 +3,7 @@ import { useOBR } from './hooks/useOBR'
 import { supabase } from './lib/supabase'
 import { PlayerView } from './components/player/PlayerView'
 import { GMView } from './components/gm/GMView'
+import { ChatPanel } from './components/shared/ChatPanel'
 import type { User } from '@supabase/supabase-js'
 
 const RESET_REDIRECT = 'https://shattered-light.vercel.app/app/'
@@ -133,6 +134,21 @@ function SetNewPasswordForm({ onDone }: { onDone: () => void }) {
 
 export function App() {
   const obr = useOBR()
+
+  // Chat popover mode — skip auth entirely, render just the chat panel
+  const params      = new URLSearchParams(window.location.search)
+  const isChatMode  = params.get('mode') === 'chat'
+  const chatCharName = params.get('charName') ?? obr.playerName
+
+  if (isChatMode) {
+    if (!obr.ready) return (
+      <div className="flex items-center justify-center h-full bg-sl-bg">
+        <p className="text-sl-muted text-xs">Connecting…</p>
+      </div>
+    )
+    return <ChatPanel playerId={obr.playerId} playerName={chatCharName} />
+  }
+
   const [authView, setAuthView] = useState<AuthView>('loading')
   const [user, setUser]         = useState<User | null>(null)
 
