@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "cd extension && npm ci && npm run build && cd .. && mkdir -p dist/app && cp -r extension/dist/* dist/app/ && cp index.html dist/index.html"
+  }
+}
