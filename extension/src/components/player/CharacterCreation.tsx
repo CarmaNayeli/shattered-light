@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import {
   ARCHETYPES, GEM_TYPES, GEM_TYPE_KEYS, STAT_KEYS, STAT_NAMES, STAT_DESCS, COURTS,
-  BACKSTORY_QUESTIONS, getGemTypesForArchetype,
+  BACKSTORY_QUESTIONS, WEAPON_TAG_LABELS, getGemTypesForArchetype,
 } from '../../lib/character-defaults'
-import type { Character, ArchetypeKey, GemType, StatKey, Bond, WeaponTag } from '../../types/character'
+import type { Character, ArchetypeKey, GemType, StatKey, Bond, WeaponTag, Weapon } from '../../types/character'
 
 interface Props {
   onComplete: (char: Character) => void
@@ -31,8 +31,11 @@ export function CharacterCreation({ onComplete }: Props) {
   const [stats, setStats]             = useState<Record<StatKey, number>>({ form:0, clarity:0, resonance:0, radiance:0, resolve:0 })
   const [optZero, setOptZero]         = useState<StatKey | null>(null)
   const [optZeroSentence, setOptZeroSentence] = useState('')
-  const [weaponIdx, setWeaponIdx]     = useState<number | null>(null)
-  const [developedPower, setDevPower] = useState<string | null>(null)
+  const [weaponIdx, setWeaponIdx]         = useState<number | null>(null)
+  const [customWeaponName, setCustomWeaponName] = useState('')
+  const [customWeaponTags, setCustomWeaponTags] = useState<WeaponTag[]>([])
+  const [expandedGem, setExpandedGem]   = useState<GemType | null>(null)
+  const [developedPower, setDevPower]   = useState<string | null>(null)
   const [signatureMove, setSigMove]   = useState('')
   const [bonds, setBonds]             = useState<Bond[]>([])
   const [newBondName, setNewBondName] = useState('')
@@ -73,7 +76,7 @@ export function CharacterCreation({ onComplete }: Props) {
       case 1: return archetype !== null
       case 2: return gemType !== null
       case 3: return remaining === 0 && (!optZero || optZeroSentence.trim().length > 0)
-      case 4: return weaponIdx !== null
+      case 4: return weaponIdx !== null && (weaponIdx !== -1 || customWeaponName.trim().length > 0)
       case 5: return developedPower !== null
       case 6: return signatureMove.trim().length > 0
       case 7: return true
@@ -84,7 +87,9 @@ export function CharacterCreation({ onComplete }: Props) {
 
   function finish() {
     if (!archetype || !gemType || !gemDef || !archDef) return
-    const weapon = gemDef.weapons[weaponIdx!]
+    const weapon: Weapon = weaponIdx === -1
+      ? { name: customWeaponName.trim(), tags: customWeaponTags }
+      : { name: gemDef.weapons[weaponIdx!].name, tags: gemDef.weapons[weaponIdx!].tags as WeaponTag[] }
     const char: Character = {
       id:         crypto.randomUUID(),
       name:       name.trim() || gemDef.label,
@@ -94,7 +99,7 @@ export function CharacterCreation({ onComplete }: Props) {
       stats:      { ...stats, ...(optZero ? { [optZero]: 0 } : {}) },
       formDamage: 0,
       bonds,
-      weapon:     { name: weapon.name, tags: weapon.tags as WeaponTag[] },
+      weapon,
       corePower:  gemDef.corePower.name,
       developedPower: developedPower!,
       signatureMove: signatureMove.trim(),
@@ -165,7 +170,7 @@ export function CharacterCreation({ onComplete }: Props) {
             <div>
               <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 2 of {TOTAL_STEPS}</p>
               <h2 className="text-lg font-bold text-sl-text">Gem Type</h2>
-              <p className="text-xs text-sl-muted mt-1">Recommended for {archDef.label} are highlighted. All types are available with GM approval.</p>
+              <p className="text-xs text-sl-muted mt-1">Recommended for {archDef.label} are highlighted. Tap a gem to select; use ▼ to preview its powers and weapons.</p>
             </div>
             <button onClick={() => setShowAllGems(!showAllGems)} className="text-xs text-sl-accent hover:opacity-80">
               {showAllGems ? 'Show recommended only' : 'Show all gem types'}
@@ -186,15 +191,71 @@ export function CharacterCreation({ onComplete }: Props) {
                     {keys!.map(key => {
                       const g = GEM_TYPES[key]
                       const isRec = recommended.includes(key)
+                      const isOpen = expandedGem === key
+                      const isSelected = gemType === key
                       return (
-                        <button key={key} onClick={() => setGemType(key)} className={cardCls(gemType === key)}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sl-text text-sm">{g.label}</span>
-                            {isRec && <span className="text-xs text-sl-accent bg-sl-accent/10 border border-sl-accent/20 rounded px-1">recommended</span>}
-                            {g.rebelNote && <span className="text-xs text-sl-partial">*</span>}
+                        <div key={key} className={`border rounded transition-all ${isSelected ? 'border-sl-accent bg-sl-accent/10' : 'border-sl-border bg-sl-surface'}`}>
+                          {/* Header row */}
+                          <div className="flex items-center gap-2 p-3">
+                            <button onClick={() => setGemType(key)} className="flex-1 text-left min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sl-text text-sm">{g.label}</span>
+                                {isRec && <span className="text-xs text-sl-accent bg-sl-accent/10 border border-sl-accent/20 rounded px-1">recommended</span>}
+                              </div>
+                              <p className="text-xs text-sl-muted mt-0.5">{g.corePower.name} · {g.weapons[0].name}{g.weapons.length > 1 ? ` +${g.weapons.length - 1}` : ''}</p>
+                            </button>
+                            <button
+                              onClick={() => setExpandedGem(isOpen ? null : key)}
+                              className="shrink-0 w-6 h-6 flex items-center justify-center text-sl-muted hover:text-sl-text text-xs"
+                              aria-label={isOpen ? 'Collapse' : 'Expand'}
+                            >
+                              {isOpen ? '▲' : '▼'}
+                            </button>
                           </div>
-                          <p className="text-xs text-sl-muted mt-0.5">{g.corePower.name} · {g.weapons[0].name}</p>
-                        </button>
+
+                          {/* Expanded details */}
+                          {isOpen && (
+                            <div className="px-3 pb-3 pt-0 border-t border-sl-border space-y-3">
+                              {/* Core power */}
+                              <div className="pt-2">
+                                <p className="text-xs text-sl-muted font-mono uppercase mb-0.5">Core Power</p>
+                                <p className="text-xs font-semibold text-sl-text">{g.corePower.name}</p>
+                                <p className="text-xs text-sl-muted">{g.corePower.desc}</p>
+                              </div>
+                              {/* Developed powers */}
+                              <div>
+                                <p className="text-xs text-sl-muted font-mono uppercase mb-0.5">Developed Powers (choose one later)</p>
+                                <div className="space-y-1.5">
+                                  {g.developedPowers.map(p => (
+                                    <div key={p.name} className="bg-sl-bg rounded p-2">
+                                      <p className="text-xs font-semibold text-sl-text">{p.name}</p>
+                                      <p className="text-xs text-sl-muted">{p.desc}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              {/* Weapons */}
+                              <div>
+                                <p className="text-xs text-sl-muted font-mono uppercase mb-0.5">Weapons</p>
+                                <div className="space-y-1">
+                                  {g.weapons.map((w, i) => (
+                                    <div key={i} className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs text-sl-text font-medium">{w.name}</span>
+                                      <div className="flex gap-1 flex-wrap">
+                                        {w.tags.map(tag => (
+                                          <span key={tag} className="text-xs bg-sl-indigo/20 text-sl-text border border-sl-indigo/30 rounded px-1">{WEAPON_TAG_LABELS[tag]}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <button onClick={() => setGemType(key)} className={`w-full py-1.5 rounded text-xs font-semibold transition-colors ${isSelected ? 'bg-sl-accent/20 text-sl-accent border border-sl-accent' : 'bg-sl-accent text-sl-accent-fg hover:opacity-90'}`}>
+                                {isSelected ? '✓ Selected' : `Select ${g.label}`}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
@@ -283,11 +344,49 @@ export function CharacterCreation({ onComplete }: Props) {
                 <p className="font-medium text-sl-text">{w.name}</p>
                 <div className="flex gap-1 mt-1 flex-wrap">
                   {w.tags.map(tag => (
-                    <span key={tag} className="text-xs bg-sl-indigo/20 text-sl-text border border-sl-indigo/30 rounded px-1.5 py-0.5">{tag}</span>
+                    <span key={tag} className="text-xs bg-sl-indigo/20 text-sl-text border border-sl-indigo/30 rounded px-1.5 py-0.5">{WEAPON_TAG_LABELS[tag]}</span>
                   ))}
                 </div>
               </button>
             ))}
+
+            {/* Custom weapon */}
+            <div className={`border rounded p-3 transition-all ${weaponIdx === -1 ? 'border-sl-accent bg-sl-accent/10' : 'border-sl-border bg-sl-surface'}`}>
+              <button onClick={() => setWeaponIdx(-1)} className="w-full text-left">
+                <p className="font-medium text-sl-text text-sm">Custom weapon</p>
+                <p className="text-xs text-sl-muted">Name your own and pick its tags</p>
+              </button>
+              {weaponIdx === -1 && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    className={inputCls}
+                    value={customWeaponName}
+                    onChange={e => setCustomWeaponName(e.target.value)}
+                    placeholder="Weapon name…"
+                  />
+                  <div>
+                    <p className="text-xs text-sl-muted mb-1.5">Tags (choose any that apply)</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {(Object.keys(WEAPON_TAG_LABELS) as WeaponTag[]).map(tag => {
+                        const active = customWeaponTags.includes(tag)
+                        return (
+                          <button
+                            key={tag}
+                            onClick={() => setCustomWeaponTags(active
+                              ? customWeaponTags.filter(t => t !== tag)
+                              : [...customWeaponTags, tag]
+                            )}
+                            className={`text-xs rounded px-2 py-1 border transition-colors ${active ? 'bg-sl-indigo/40 border-sl-accent text-sl-text' : 'bg-sl-bg border-sl-border text-sl-muted hover:border-sl-accent'}`}
+                          >
+                            {WEAPON_TAG_LABELS[tag]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
