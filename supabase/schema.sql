@@ -1,8 +1,14 @@
 -- Shattered Light — Supabase schema
 -- Run this in the Supabase SQL editor
 
--- Characters (one row per user per room; all slot data stored as JSON)
-create table if not exists public.characters (
+-- ── Drop existing (safe to re-run) ──────────────────────────────────────────
+drop table if exists public.characters cascade;
+drop table if exists public.npcs cascade;
+drop function if exists public.set_updated_at cascade;
+
+-- ── Characters ───────────────────────────────────────────────────────────────
+-- One row per user per room; all slot data stored as JSON array
+create table public.characters (
   id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null references auth.users(id) on delete cascade,
   room_id         text not null,
@@ -18,8 +24,9 @@ create policy "Users manage their own characters"
   using  (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- NPCs (one row per room, managed by GM; readable by all authenticated users)
-create table if not exists public.npcs (
+-- ── NPCs ─────────────────────────────────────────────────────────────────────
+-- One row per room, managed by GM; players can read
+create table public.npcs (
   id          uuid primary key default gen_random_uuid(),
   room_id     text not null unique,
   gm_user_id  uuid not null references auth.users(id) on delete cascade,
@@ -38,8 +45,8 @@ create policy "Players can read NPCs"
   on public.npcs for select
   using (auth.uid() is not null);
 
--- Keep updated_at current
-create or replace function public.set_updated_at()
+-- ── updated_at trigger ───────────────────────────────────────────────────────
+create function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
   new.updated_at = now();
