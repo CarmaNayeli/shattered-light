@@ -1,8 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import OBR from '@owlbear-rodeo/sdk'
+import { supabase } from '../../lib/supabase'
+import type { NPC } from '../../lib/character-defaults'
+import type { FusionSheet } from '../../types/fusion'
 import type { Bond } from '../../types/character'
+
+const FUSIONS_KEY = 'sl_fusions'
+const CUSTOM_VAL  = '__custom__'
 
 interface Props {
   bonds: Bond[]
+  roomId: string
+  characterName: string
   onChange: (bonds: Bond[]) => void
 }
 
@@ -34,22 +43,67 @@ const RATING_LABELS: Record<number, string> = {
   5: 'Resonant — complete trust',
 }
 
-export function BondsPanel({ bonds, onChange }: Props) {
-  const [newName, setNewName]         = useState('')
+type OptionGroup = 'Players' | 'NPCs' | 'Fusions'
+
+export function BondsPanel({ bonds, roomId, characterName, onChange }: Props) {
+  const [nameSel, setNameSel]         = useState('')
+  const [customName, setCustomName]   = useState('')
   const [newNote, setNewNote]         = useState('')
   const [editing, setEditing]         = useState<string | null>(null)
   const [confirmDelete, setConfirm]   = useState<string | null>(null)
+  const [partyNames, setPartyNames]   = useState<string[]>([])
+  const [npcNames, setNpcNames]       = useState<string[]>([])
+  const [fusionNames, setFusionNames] = useState<string[]>([])
+
+  useEffect(() => {
+    OBR.onReady(async () => {
+      const players = await OBR.party.getPlayers()
+      const names = players
+        .map(p => (p.metadata?.['sl'] as { name?: string } | undefined)?.name || p.name)
+        .filter(n => n !== characterName)
+      setPartyNames(names)
+    })
+  }, [characterName])
+
+  useEffect(() => {
+    if (!roomId) return
+    supabase.from('npcs').select('npc_data').eq('room_id', roomId).maybeSingle()
+      .then(({ data }) => {
+        const npcs = (data?.npc_data as NPC[]) ?? []
+        setNpcNames(npcs.map(n => n.name).filter(Boolean))
+      })
+    OBR.onReady(async () => {
+      const meta = await OBR.room.getMetadata()
+      const fusions = (meta[FUSIONS_KEY] as FusionSheet[]) ?? []
+      setFusionNames(fusions.map(f => f.name))
+    })
+  }, [roomId])
+
+  const options: Array<{ value: string; group: OptionGroup }> = [
+    ...partyNames.map(v => ({ value: v, group: 'Players' as const })),
+    ...npcNames.map(v => ({ value: v, group: 'NPCs' as const })),
+    ...fusionNames.map(v => ({ value: v, group: 'Fusions' as const })),
+  ]
+
+  const grouped: Partial<Record<OptionGroup, typeof options>> = {}
+  for (const opt of options) {
+    if (!grouped[opt.group]) grouped[opt.group] = []
+    grouped[opt.group]!.push(opt)
+  }
+
+  const targetName = nameSel === CUSTOM_VAL ? customName : nameSel
 
   function addBond() {
-    if (!newName.trim()) return
+    if (!targetName.trim()) return
     const bond: Bond = {
       id:         crypto.randomUUID(),
-      targetName: newName.trim(),
+      targetName: targetName.trim(),
       rating:     1,
       note:       newNote.trim() || '',
     }
     onChange([...bonds, bond])
-    setNewName('')
+    setNameSel('')
+    setCustomName('')
     setNewNote('')
   }
 
@@ -64,6 +118,9 @@ export function BondsPanel({ bonds, onChange }: Props) {
   function updateNote(id: string, note: string) {
     onChange(bonds.map(b => b.id === id ? { ...b, note } : b))
   }
+
+  const sel = 'w-full bg-sl-bg border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text focus:outline-none focus:border-sl-accent'
+  const inp = 'w-full bg-sl-bg border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent'
 
   return (
     <div className="space-y-3 p-3">
@@ -114,15 +171,21 @@ export function BondsPanel({ bonds, onChange }: Props) {
       {/* Add bond */}
       <div className="border border-dashed border-sl-border rounded p-2.5 space-y-2">
         <p className="text-xs text-sl-muted">Add a Bond</p>
-        <input
-          className="w-full bg-sl-bg border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent"
-          placeholder="Gem's name"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && addBond()}
-        />
+        <select className={sel} value={nameSel} onChange={e => setNameSel(e.target.value)}>
+          <option value="">— Select —</option>
+          {(['Players', 'NPCs', 'Fusions'] as OptionGroup[]).map(g => grouped[g]?.length ? (
+            <optgroup key={g} label={g}>
+              {grouped[g]!.map(o => <option key={o.value} value={o.value}>{o.value}</option>)}
+            </optgroup>
+          ) : null)}
+          <option value={CUSTOM_VAL}>Custom…</option>
+        </select>
+        {nameSel === CUSTOM_VAL && (
+          <input className={inp} value={customName} onChange={e => setCustomName(e.target.value)}
+            placeholder="Name" onKeyDown={e => e.key === 'Enter' && addBond()} />
+        )}
         <textarea
-          className="w-full bg-sl-bg border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent resize-none"
+          className={`${inp} resize-none`}
           rows={2}
           placeholder="One sentence about this relationship (optional)…"
           value={newNote}
@@ -130,7 +193,7 @@ export function BondsPanel({ bonds, onChange }: Props) {
         />
         <button
           onClick={addBond}
-          disabled={!newName.trim()}
+          disabled={!targetName.trim()}
           className="w-full py-1.5 rounded text-xs bg-sl-accent text-sl-accent-fg disabled:opacity-40 hover:opacity-90 font-semibold"
         >
           Add Bond

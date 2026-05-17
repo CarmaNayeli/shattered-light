@@ -268,6 +268,8 @@ export function CharacterSheet({ character, roomId, onUpdate, onRoll }: Props) {
         {tab === 'bonds'  && (
           <BondsPanel
             bonds={character.bonds}
+            roomId={roomId}
+            characterName={character.name}
             onChange={bonds => onUpdate({ ...character, bonds })}
           />
         )}
