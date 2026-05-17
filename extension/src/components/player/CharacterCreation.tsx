@@ -9,7 +9,7 @@ interface Props {
   onComplete: (char: Character) => void
 }
 
-const TOTAL_STEPS = 9
+const TOTAL_STEPS = 8
 
 function StepBar({ step }: { step: number }) {
   return (
@@ -41,10 +41,9 @@ export function CharacterCreation({ onComplete }: Props) {
   const [backstory, setBackstory]     = useState<Record<string, string>>({})
   const [notes, setNotes]             = useState('')
 
-  const archDef  = archetype ? ARCHETYPES[archetype] : null
-  const gemDef   = gemType   ? GEM_TYPES[gemType]   : null
+  const archDef = archetype ? ARCHETYPES[archetype] : null
+  const gemDef  = gemType   ? GEM_TYPES[gemType]   : null
 
-  // Stat assignment
   const totalPoints = optZero ? 6 : 5
   const usedPoints  = Object.values(stats).reduce((a, b) => a + b, 0)
   const remaining   = totalPoints - usedPoints
@@ -52,16 +51,14 @@ export function CharacterCreation({ onComplete }: Props) {
 
   function adjustStat(stat: StatKey, delta: number) {
     const next = stats[stat] + delta
-    if (next < 0) return
-    if (next > maxStat(stat)) return
+    if (next < 0 || next > maxStat(stat)) return
     if (delta > 0 && remaining <= 0) return
     if (stat === optZero) return
     setStats({ ...stats, [stat]: next })
   }
 
   function addBond() {
-    if (!newBondName.trim()) return
-    if (bonds.length >= 5) return
+    if (!newBondName.trim() || bonds.length >= 5) return
     setBonds([...bonds, {
       id: crypto.randomUUID(),
       targetName: newBondName.trim(),
@@ -73,15 +70,14 @@ export function CharacterCreation({ onComplete }: Props) {
 
   function canAdvance(): boolean {
     switch (step) {
-      case 1: return name.trim().length > 0
-      case 2: return archetype !== null
-      case 3: return gemType !== null
-      case 4: return remaining === 0 && (!optZero || optZeroSentence.trim().length > 0)
-      case 5: return weaponIdx !== null
-      case 6: return developedPower !== null
-      case 7: return signatureMove.trim().length > 0
+      case 1: return archetype !== null
+      case 2: return gemType !== null
+      case 3: return remaining === 0 && (!optZero || optZeroSentence.trim().length > 0)
+      case 4: return weaponIdx !== null
+      case 5: return developedPower !== null
+      case 6: return signatureMove.trim().length > 0
+      case 7: return true
       case 8: return true
-      case 9: return true
       default: return false
     }
   }
@@ -90,16 +86,16 @@ export function CharacterCreation({ onComplete }: Props) {
     if (!archetype || !gemType || !gemDef || !archDef) return
     const weapon = gemDef.weapons[weaponIdx!]
     const char: Character = {
-      id:       crypto.randomUUID(),
-      name:     name.trim(),
-      pronouns: pronouns.trim(),
+      id:         crypto.randomUUID(),
+      name:       name.trim() || gemDef.label,
+      pronouns:   pronouns.trim(),
       archetype,
       gemType,
-      stats:    { ...stats, ...(optZero ? { [optZero]: 0 } : {}) },
+      stats:      { ...stats, ...(optZero ? { [optZero]: 0 } : {}) },
       formDamage: 0,
       bonds,
-      weapon:   { name: weapon.name, tags: weapon.tags as WeaponTag[] },
-      corePower: gemDef.corePower.name,
+      weapon:     { name: weapon.name, tags: weapon.tags as WeaponTag[] },
+      corePower:  gemDef.corePower.name,
       developedPower: developedPower!,
       signatureMove: signatureMove.trim(),
       optionalZero: optZero ?? undefined,
@@ -108,16 +104,16 @@ export function CharacterCreation({ onComplete }: Props) {
       markedStats: [],
       markedBondIds: [],
       backstory: {
-        madeFor:          backstory.madeFor ?? '',
-        rebellionBelief:  backstory.rebellionBelief ?? '',
-        importantGem:     backstory.importantGem ?? '',
-        formTells:        backstory.formTells ?? '',
-        wouldLeave:       backstory.wouldLeave ?? '',
-        wants:            backstory.wants ?? '',
-        bravest:          backstory.bravest ?? '',
-        archetypeQ1:      backstory.archetypeQ1 ?? '',
-        archetypeQ2:      backstory.archetypeQ2 ?? '',
-        archetypeQ3:      backstory.archetypeQ3 ?? '',
+        madeFor:         backstory.madeFor ?? '',
+        rebellionBelief: backstory.rebellionBelief ?? '',
+        importantGem:    backstory.importantGem ?? '',
+        formTells:       backstory.formTells ?? '',
+        wouldLeave:      backstory.wouldLeave ?? '',
+        wants:           backstory.wants ?? '',
+        bravest:         backstory.bravest ?? '',
+        archetypeQ1:     backstory.archetypeQ1 ?? '',
+        archetypeQ2:     backstory.archetypeQ2 ?? '',
+        archetypeQ3:     backstory.archetypeQ3 ?? '',
       },
       notes,
     }
@@ -125,26 +121,21 @@ export function CharacterCreation({ onComplete }: Props) {
   }
 
   const inputCls = 'w-full bg-sl-bg border border-sl-border rounded px-3 py-2 text-sm text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent'
-  const cardCls  = (selected: boolean) => `border rounded p-3 cursor-pointer transition-all text-left ${selected ? 'border-sl-accent bg-sl-accent/10' : 'border-sl-border bg-sl-surface hover:border-sl-accent/50'}`
+  const cardCls  = (selected: boolean) => `border rounded p-3 cursor-pointer transition-all text-left w-full ${selected ? 'border-sl-accent bg-sl-accent/10' : 'border-sl-border bg-sl-surface hover:border-sl-accent/50'}`
 
   return (
     <div className="flex flex-col h-full bg-sl-bg">
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <StepBar step={step} />
 
-        {/* Step 1 — Name & Pronouns */}
+        {/* Step 1 — Archetype */}
         {step === 1 && (
-          <div className="space-y-4">
-            <div><p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 1 of {TOTAL_STEPS}</p><h2 className="text-lg font-bold text-sl-text">Your Gem</h2></div>
-            <div><label className="block text-xs text-sl-muted mb-1">Name</label><input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="Your gem's name" /></div>
-            <div><label className="block text-xs text-sl-muted mb-1">Pronouns (optional)</label><input className={inputCls} value={pronouns} onChange={e => setPronouns(e.target.value)} placeholder="she/her, they/them…" /></div>
-          </div>
-        )}
-
-        {/* Step 2 — Archetype */}
-        {step === 2 && (
           <div className="space-y-3">
-            <div><p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 2 of {TOTAL_STEPS}</p><h2 className="text-lg font-bold text-sl-text">Archetype</h2><p className="text-xs text-sl-muted mt-1">The Diamond whose logic shaped you — even in rebellion.</p></div>
+            <div>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 1 of {TOTAL_STEPS}</p>
+              <h2 className="text-lg font-bold text-sl-text">Archetype</h2>
+              <p className="text-xs text-sl-muted mt-1">The Diamond whose logic shaped you — even in rebellion.</p>
+            </div>
             {(Object.keys(ARCHETYPES) as ArchetypeKey[]).map(key => {
               const a = ARCHETYPES[key]
               return (
@@ -168,11 +159,11 @@ export function CharacterCreation({ onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 3 — Gem Type */}
-        {step === 3 && archDef && (
+        {/* Step 2 — Gem Type */}
+        {step === 2 && archDef && (
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 3 of {TOTAL_STEPS}</p>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 2 of {TOTAL_STEPS}</p>
               <h2 className="text-lg font-bold text-sl-text">Gem Type</h2>
               <p className="text-xs text-sl-muted mt-1">Recommended for {archDef.label} are highlighted. All types are available with GM approval.</p>
             </div>
@@ -196,7 +187,7 @@ export function CharacterCreation({ onComplete }: Props) {
                       const g = GEM_TYPES[key]
                       const isRec = recommended.includes(key)
                       return (
-                        <button key={key} onClick={() => setGemType(key)} className={`${cardCls(gemType === key)} ${!isRec && !showAllGems ? '' : ''}`}>
+                        <button key={key} onClick={() => setGemType(key)} className={cardCls(gemType === key)}>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sl-text text-sm">{g.label}</span>
                             {isRec && <span className="text-xs text-sl-accent bg-sl-accent/10 border border-sl-accent/20 rounded px-1">recommended</span>}
@@ -213,21 +204,20 @@ export function CharacterCreation({ onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 4 — Stats */}
-        {step === 4 && archDef && (
+        {/* Step 3 — Stats */}
+        {step === 3 && archDef && (
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 4 of {TOTAL_STEPS}</p>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 3 of {TOTAL_STEPS}</p>
               <h2 className="text-lg font-bold text-sl-text">Assign Stats</h2>
-              <p className="text-xs text-sl-muted mt-1">Distribute {totalPoints} points within your archetype's ceilings. No stat above 4 at creation. Stats of 0 are valid — they're a story.</p>
+              <p className="text-xs text-sl-muted mt-1">Distribute {totalPoints} points within your archetype's ceilings. No stat above 4 at creation.</p>
             </div>
-            {/* Optional zero */}
             <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-sl-text font-semibold">The Optional Zero</p>
                 {optZero && <button onClick={() => { setOptZero(null); setOptZeroSentence(''); setStats({ ...stats, [optZero]: 0 }) }} className="text-xs text-sl-muted hover:text-sl-danger">Remove</button>}
               </div>
-              <p className="text-xs text-sl-muted">Set one stat to 0 and lock it — gain +1 bonus point. Write one sentence explaining why. The first point into that stat should feel like a scene.</p>
+              <p className="text-xs text-sl-muted">Set one stat to 0 and lock it — gain +1 bonus point. Write one sentence explaining why.</p>
               {!optZero ? (
                 <div className="flex gap-1 flex-wrap">
                   {STAT_KEYS.map(s => (
@@ -280,10 +270,14 @@ export function CharacterCreation({ onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 5 — Weapon */}
-        {step === 5 && gemDef && (
+        {/* Step 4 — Weapon */}
+        {step === 4 && gemDef && (
           <div className="space-y-3">
-            <div><p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 5 of {TOTAL_STEPS}</p><h2 className="text-lg font-bold text-sl-text">Weapon</h2><p className="text-xs text-sl-muted mt-1">Every gem summons a weapon from their gem. Your listed weapon is the one that feels like yours.</p></div>
+            <div>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 4 of {TOTAL_STEPS}</p>
+              <h2 className="text-lg font-bold text-sl-text">Weapon</h2>
+              <p className="text-xs text-sl-muted mt-1">Every gem summons a weapon from their gem. Your listed weapon is the one that feels like yours.</p>
+            </div>
             {gemDef.weapons.map((w, i) => (
               <button key={i} onClick={() => setWeaponIdx(i)} className={cardCls(weaponIdx === i)}>
                 <p className="font-medium text-sl-text">{w.name}</p>
@@ -297,11 +291,11 @@ export function CharacterCreation({ onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 6 — Developed Power */}
-        {step === 6 && gemDef && (
+        {/* Step 5 — Developed Power */}
+        {step === 5 && gemDef && (
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 6 of {TOTAL_STEPS}</p>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 5 of {TOTAL_STEPS}</p>
               <h2 className="text-lg font-bold text-sl-text">Powers</h2>
               <p className="text-xs text-sl-muted mt-1">Your core power is automatic. Choose one developed power.</p>
             </div>
@@ -320,11 +314,11 @@ export function CharacterCreation({ onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 7 — Signature Move */}
-        {step === 7 && (
+        {/* Step 6 — Signature Move */}
+        {step === 6 && (
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 7 of {TOTAL_STEPS}</p>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 6 of {TOTAL_STEPS}</p>
               <h2 className="text-lg font-bold text-sl-text">Signature Move</h2>
               <p className="text-xs text-sl-muted mt-1">The one thing that is mechanically, specifically, irreducibly you. Not your gem type — this gem, as you've written them.</p>
             </div>
@@ -339,7 +333,6 @@ export function CharacterCreation({ onComplete }: Props) {
                 <p>"When I've been dismissed in this scene, my next roll gets bonus dice equal to how many times."</p>
                 <p>"When I tell the truth about something I've been hiding, every gem who hears it gets a bonus die."</p>
                 <p>"When everything has failed and I'm the last one standing, I don't poof."</p>
-                <p>"When I fuse with another gem, the fusion begins with one additional Harmony box."</p>
               </div>
             </div>
             <div>
@@ -351,13 +344,13 @@ export function CharacterCreation({ onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 8 — Starting Bonds */}
-        {step === 8 && (
+        {/* Step 7 — Starting Bonds */}
+        {step === 7 && (
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 8 of {TOTAL_STEPS}</p>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 7 of {TOTAL_STEPS}</p>
               <h2 className="text-lg font-bold text-sl-text">Starting Bonds</h2>
-              <p className="text-xs text-sl-muted mt-1">One Bond may start at 3 (requires a shared history). All others start at 1 or 2. No Bond starts higher than 3.</p>
+              <p className="text-xs text-sl-muted mt-1">One Bond may start at 3 (requires a shared history). All others start at 1 or 2. Skip this step if you're playing a solo session zero.</p>
             </div>
             <div className="space-y-2">
               {bonds.map(b => (
@@ -369,7 +362,7 @@ export function CharacterCreation({ onComplete }: Props) {
             </div>
             <div className="border border-dashed border-sl-border rounded p-3 space-y-2">
               <p className="text-xs text-sl-muted">Add a starting Bond</p>
-              <input className={inputCls} value={newBondName} onChange={e => setNewBondName(e.target.value)} placeholder="Gem's name" />
+              <input className={inputCls} value={newBondName} onChange={e => setNewBondName(e.target.value)} placeholder="Gem's name" onKeyDown={e => e.key === 'Enter' && addBond()} />
               <div className="flex items-center gap-2">
                 <label className="text-xs text-sl-muted">Rating:</label>
                 {[1,2,3].map(n => (
@@ -390,14 +383,28 @@ export function CharacterCreation({ onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 9 — Backstory */}
-        {step === 9 && archDef && (
+        {/* Step 8 — Backstory (+ optional name/pronouns) */}
+        {step === 8 && archDef && (
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 9 of {TOTAL_STEPS}</p>
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide mb-1">Step 8 of {TOTAL_STEPS}</p>
               <h2 className="text-lg font-bold text-sl-text">Backstory</h2>
-              <p className="text-xs text-sl-muted mt-1">Answer these before your first session. Write as much or as little as feels true. No wrong answers, only incomplete ones.</p>
+              <p className="text-xs text-sl-muted mt-1">Answer these before your first session. Write as much or as little as feels true.</p>
             </div>
+
+            {/* Optional name + pronouns */}
+            <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-2">
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Identity (optional)</p>
+              <div>
+                <label className="block text-xs text-sl-muted mb-1">Name <span className="opacity-60">— leave blank to use gem type</span></label>
+                <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder={gemDef?.label ?? 'Your gem name'} />
+              </div>
+              <div>
+                <label className="block text-xs text-sl-muted mb-1">Pronouns</label>
+                <input className={inputCls} value={pronouns} onChange={e => setPronouns(e.target.value)} placeholder="she/her, they/them…" />
+              </div>
+            </div>
+
             {BACKSTORY_QUESTIONS.map(q => (
               <div key={q.key}>
                 <label className="block text-xs text-sl-muted mb-1">{q.label}</label>
