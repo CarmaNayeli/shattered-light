@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Shattered Light star logo: 5 segments in game palette colors -->
+  <!-- Center: 256,256 | Outer R=220 | Inner r=84 -->
+  <!-- P0(top)=256,36 I0=305,188 P1(UR)=465,188 I1=336,282 P2(LR)=385,434 I2=256,340 P3(LL)=127,434 I3=176,282 P4(UL)=47,188 I4=207,188 -->
+  <polygon points="256,256 207,188 256,36 305,188"   fill="#FFFFFF" stroke="#cccccc" stroke-width="1"/>
+  <polygon points="256,256 305,188 465,188 336,282"  fill="#F5E06B"/>
+  <polygon points="256,256 336,282 385,434 256,340"  fill="#2C2C2C"/>
+  <polygon points="256,256 256,340 127,434 176,282"  fill="#F4A0C0"/>
+  <polygon points="256,256 176,282 47,188 207,188"   fill="#A8C8F0"/>
+</svg>

@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    { "source": "/app/(.*)", "destination": "/app/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/app/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Embedder-Policy",  "value": "credentialless" },
+        { "key": "Cross-Origin-Opener-Policy",    "value": "same-origin" }
+      ]
+    }
+  ]
+}

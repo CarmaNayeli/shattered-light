@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sl-accent:    168 200 240;   /* #A8C8F0 cornflower blue */
+  --sl-accent-fg: 13  26  26;   /* #0d1a1a */
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #264040; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #3a6060; }
