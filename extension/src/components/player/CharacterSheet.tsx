@@ -3,11 +3,11 @@ import { RollPanel } from './RollPanel'
 import { BondsPanel } from './BondsPanel'
 import { FusionPanel } from './FusionPanel'
 import { STAT_KEYS, STAT_NAMES, getArchetype, getGemType, WEAPON_TAG_LABELS, BACKSTORY_QUESTIONS } from '../../lib/character-defaults'
-import { statAdvanceCost, requiresSignificantMoment, powerAdvanceCost } from '../../lib/advancement'
+import { statAdvanceCost, statBeyondCeilingCost, requiresSignificantMoment, powerAdvanceCost } from '../../lib/advancement'
 import type { Character } from '../../types/character'
 import type { ChatMessage } from '../../types/chat'
 
-type Tab = 'roll' | 'bonds' | 'gem' | 'fusion' | 'story'
+type Tab = 'roll' | 'bonds' | 'gem' | 'fusion' | 'story' | 'advance'
 
 interface Props {
   character: Character
@@ -195,161 +195,144 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
         />
       </div>
 
-      {/* Advancement */}
-      <div className="border border-sl-border rounded p-3 space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Advancement</p>
-          {/* XP counter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-sl-muted">XP</span>
-            <button onClick={() => onUpdate({ ...character, xp: Math.max(0, (character.xp ?? 0) - 1) })}
-              className="w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-xs leading-none">−</button>
-            <span className="text-sm font-bold text-sl-accent w-5 text-center">{character.xp ?? 0}</span>
-            <button onClick={() => onUpdate({ ...character, xp: (character.xp ?? 0) + 1 })}
-              className="w-5 h-5 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-xs leading-none">+</button>
-          </div>
-        </div>
+    </div>
+  )
+}
 
-        <p className="text-xs text-sl-muted -mt-2">GM awards XP; player can suggest. Spend with GM approval.</p>
+function AdvanceTab({ character, onUpdate }: { character: Character; onUpdate: (c: Character) => void }) {
+  const archDef = getArchetype(character.archetype)
+  const gemDef  = getGemType(character.gemType)
+  const xp      = character.xp ?? 0
 
-        {/* Stat advances */}
+  return (
+    <div className="space-y-4 p-3">
+      {/* XP counter */}
+      <div className="flex items-center justify-between bg-sl-surface border border-sl-border rounded px-3 py-2">
         <div>
-          <p className="text-xs text-sl-muted mb-1.5 font-semibold">Stats</p>
-          <div className="space-y-1.5">
-            {STAT_KEYS.map(s => {
-              const val      = character.stats[s]
-              const ceiling  = archDef.ceilings[s]
-              const atCeil   = val >= ceiling
-              const cost     = statAdvanceCost(val)
-              const xp       = character.xp ?? 0
-              const needsSig = requiresSignificantMoment(s, val, character.optionalZero)
-              const sigMoments = character.significantMoments ?? []
-              const sigConfirmed = sigMoments.includes(s)
-              const canAdvance = !atCeil && xp >= cost && (!needsSig || sigConfirmed)
-
-              function advanceStat() {
-                if (!canAdvance) return
-                onUpdate({
-                  ...character,
-                  stats: { ...character.stats, [s]: val + 1 },
-                  xp: xp - cost,
-                  significantMoments: sigMoments.filter(m => m !== s),
-                  markedStats: character.markedStats.filter(m => m !== s),
-                })
-              }
-
-              function toggleSig() {
-                onUpdate({
-                  ...character,
-                  significantMoments: sigConfirmed
-                    ? sigMoments.filter(m => m !== s)
-                    : [...sigMoments, s],
-                })
-              }
-
-              return (
-                <div key={s} className="bg-sl-bg border border-sl-border rounded px-2.5 py-2 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold flex-1 ${character.markedStats.includes(s) ? 'text-sl-accent' : 'text-sl-text'}`}>
-                      {STAT_NAMES[s]}
-                      {character.markedStats.includes(s) && <span className="text-sl-harmony ml-1">●</span>}
-                    </span>
-                    <span className="text-xs text-sl-muted">
-                      {val}/{ceiling}{atCeil ? ' (max)' : ` → ${val + 1} · ${cost} XP`}
-                    </span>
-                    <button
-                      disabled={!canAdvance}
-                      onClick={advanceStat}
-                      className={`text-xs px-2 py-0.5 rounded transition-all whitespace-nowrap
-                        ${canAdvance
-                          ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90 active:scale-95'
-                          : 'bg-sl-surface text-sl-muted border border-sl-border cursor-not-allowed opacity-60'
-                        }`}
-                    >
-                      {atCeil ? 'Max' : `+1`}
-                    </button>
-                  </div>
-                  {needsSig && !atCeil && (
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="checkbox" checked={sigConfirmed} onChange={toggleSig}
-                        className="accent-[var(--sl-accent)] w-3 h-3" />
-                      <span className="text-xs text-sl-muted">
-                        {val === 0 && character.optionalZero === s
-                          ? 'Particularly significant moment confirmed (GM)'
-                          : 'Significant story moment confirmed (GM) — required for 4→5'}
-                      </span>
-                    </label>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          <p className="text-xs font-semibold text-sl-text">XP</p>
+          <p className="text-xs text-sl-muted">GM awards · spend with GM approval</p>
         </div>
-
-        {/* Power unlocks */}
-        <div>
-          <p className="text-xs text-sl-muted mb-1.5 font-semibold">Powers</p>
-          <div className="space-y-1.5">
-            {gemDef.developedPowers.map(power => {
-              const owned = character.developedPower === power.name
-                || (character.additionalPowers ?? []).includes(power.name)
-              const ownedCount = 1 + (character.additionalPowers?.length ?? 0)
-              const cost = powerAdvanceCost(ownedCount)
-              const xp = character.xp ?? 0
-              return (
-                <div key={power.name} className="flex items-start gap-2 p-2 rounded border border-sl-border bg-sl-bg">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-sl-text">{power.name}</p>
-                    <p className="text-xs text-sl-muted leading-snug">{power.desc}</p>
-                  </div>
-                  {owned ? (
-                    <span className="shrink-0 text-xs text-sl-success pt-0.5">✓</span>
-                  ) : (
-                    <button
-                      disabled={xp < cost}
-                      onClick={() => onUpdate({
-                        ...character,
-                        xp: xp - cost,
-                        additionalPowers: [...(character.additionalPowers ?? []), power.name],
-                      })}
-                      className={`shrink-0 text-xs px-2 py-0.5 rounded whitespace-nowrap transition-all
-                        ${xp >= cost
-                          ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90'
-                          : 'bg-sl-surface text-sl-muted border border-sl-border opacity-60 cursor-not-allowed'
-                        }`}
-                    >
-                      {cost} XP
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => onUpdate({ ...character, xp: Math.max(0, xp - 1) })}
+            className="w-6 h-6 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-sm">−</button>
+          <span className="text-lg font-bold text-sl-accent w-7 text-center">{xp}</span>
+          <button onClick={() => onUpdate({ ...character, xp: xp + 1 })}
+            className="w-6 h-6 rounded border border-sl-border text-sl-muted hover:border-sl-accent text-sm">+</button>
         </div>
-
-        {/* Cost reference */}
-        <div className="border-t border-sl-border pt-2 text-xs text-sl-muted space-y-0.5 font-mono">
-          <p className="text-sl-muted uppercase tracking-wide mb-1">Cost reference</p>
-          <div className="flex gap-3">
-            <span>0→1: 1 XP</span><span>1→2: 1 XP</span><span>2→3: 2 XP</span>
-          </div>
-          <div className="flex gap-3">
-            <span>3→4: 2 XP</span><span>4→5: 3 XP ★</span>
-          </div>
-          <p className="text-sl-muted/70">★ requires significant moment · ★★ forced-zero first step also gated</p>
-          <p className="text-sl-muted/70">Powers: 1st=2 XP, 2nd=3 XP, 3rd=4 XP…</p>
-        </div>
-
-        {/* Clear session marks */}
-        {character.markedStats.length > 0 && (
-          <button
-            onClick={() => onUpdate({ ...character, markedStats: [], markedBondIds: [] })}
-            className="w-full text-xs text-sl-muted hover:text-sl-text border border-sl-border rounded py-1.5 transition-colors"
-          >
-            Clear session marks
-          </button>
-        )}
       </div>
+
+      {/* Stats */}
+      <div>
+        <p className="text-xs text-sl-muted mb-1.5 font-semibold">Stats</p>
+        <div className="space-y-1.5">
+          {STAT_KEYS.map(s => {
+            const val        = character.stats[s]
+            const ceiling    = archDef.ceilings[s]
+            const sigMoments = character.significantMoments ?? []
+            const sigOk      = sigMoments.includes(s)
+
+            const isNormal = val < ceiling
+            const isBeyond = !isNormal && val < 5
+            const isUltra  = val >= 5
+            const cost     = isNormal ? statAdvanceCost(val)
+                           : isBeyond ? statBeyondCeilingCost(val)
+                           : statAdvanceCost(val) * 3
+            const needsSig = !isNormal || requiresSignificantMoment(s, val, character.optionalZero)
+            const canAdv   = xp >= cost && (!needsSig || sigOk)
+
+            const ceilLabel = isNormal ? `${val}/${ceiling}`
+                            : isBeyond ? `${val}/${ceiling} ↑`
+                            : `${val} ★`
+
+            return (
+              <div key={s} className="bg-sl-bg border border-sl-border rounded px-2.5 py-2 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-semibold flex-1 ${character.markedStats.includes(s) ? 'text-sl-accent' : 'text-sl-text'}`}>
+                    {STAT_NAMES[s]}
+                    {character.markedStats.includes(s) && <span className="text-sl-harmony ml-1">●</span>}
+                  </span>
+                  <span className="text-xs text-sl-muted">{ceilLabel}</span>
+                  <span className="text-xs text-sl-muted">
+                    {`→ ${val+1} · ${cost} XP`}{isBeyond ? ' ×2' : isUltra ? ' ×3' : ''}
+                  </span>
+                  <button disabled={!canAdv}
+                    onClick={() => canAdv && onUpdate({
+                      ...character,
+                      stats: { ...character.stats, [s]: val + 1 },
+                      xp: xp - cost,
+                      significantMoments: sigMoments.filter(m => m !== s),
+                      markedStats: character.markedStats.filter(m => m !== s),
+                    })}
+                    className={`text-xs px-2 py-0.5 rounded whitespace-nowrap transition-all
+                      ${canAdv ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90 active:scale-95'
+                        : 'bg-sl-surface text-sl-muted border border-sl-border cursor-not-allowed opacity-60'}`}>
+                    +1
+                  </button>
+                </div>
+                {needsSig && (
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={sigOk}
+                      onChange={() => onUpdate({ ...character, significantMoments: sigOk ? sigMoments.filter(m => m !== s) : [...sigMoments, s] })}
+                      className="accent-[var(--sl-accent)] w-3 h-3" />
+                    <span className="text-xs text-sl-muted">
+                      {val === 0 && character.optionalZero === s
+                        ? 'Particularly significant moment confirmed (GM)'
+                        : isBeyond || isUltra
+                          ? 'Significant moment required — exceeding ceiling'
+                          : 'Significant moment confirmed (GM) — required for 4→5'}
+                    </span>
+                  </label>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Powers */}
+      <div>
+        <p className="text-xs text-sl-muted mb-1.5 font-semibold">Powers</p>
+        <div className="space-y-1.5">
+          {gemDef.developedPowers.map(power => {
+            const owned      = character.developedPower === power.name || (character.additionalPowers ?? []).includes(power.name)
+            const ownedCount = 1 + (character.additionalPowers?.length ?? 0)
+            const cost       = powerAdvanceCost(ownedCount)
+            return (
+              <div key={power.name} className="flex items-start gap-2 p-2 rounded border border-sl-border bg-sl-bg">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-sl-text">{power.name}</p>
+                  <p className="text-xs text-sl-muted leading-snug">{power.desc}</p>
+                </div>
+                {owned ? (
+                  <span className="shrink-0 text-xs text-sl-success pt-0.5">✓</span>
+                ) : (
+                  <button disabled={xp < cost}
+                    onClick={() => onUpdate({ ...character, xp: xp - cost, additionalPowers: [...(character.additionalPowers ?? []), power.name] })}
+                    className={`shrink-0 text-xs px-2 py-0.5 rounded whitespace-nowrap transition-all
+                      ${xp >= cost ? 'bg-sl-accent text-sl-accent-fg hover:opacity-90' : 'bg-sl-surface text-sl-muted border border-sl-border opacity-60 cursor-not-allowed'}`}>
+                    {cost} XP
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Cost reference */}
+      <div className="border-t border-sl-border pt-2 text-xs text-sl-muted font-mono space-y-0.5">
+        <p className="uppercase tracking-wide mb-1">Cost reference</p>
+        <div className="flex gap-3"><span>0→1: 1</span><span>1→2: 1</span><span>2→3: 2</span><span>3→4: 2</span><span>4→5: 3 ★</span></div>
+        <div className="flex gap-3 pt-0.5"><span className="text-sl-muted/80">↑ beyond ceiling: ×2 ★</span><span className="text-sl-muted/80">beyond 5: ×3 ★</span></div>
+        <p className="text-sl-muted/70">★ significant moment required · Powers: 2, 3, 4… XP</p>
+      </div>
+
+      {character.markedStats.length > 0 && (
+        <button onClick={() => onUpdate({ ...character, markedStats: [], markedBondIds: [] })}
+          className="w-full text-xs text-sl-muted hover:text-sl-text border border-sl-border rounded py-1.5 transition-colors">
+          Clear session marks
+        </button>
+      )}
     </div>
   )
 }
@@ -394,11 +377,12 @@ function StoryTab({ character, onUpdate }: { character: Character; onUpdate: (c:
 }
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'roll',   label: 'Roll' },
-  { id: 'bonds',  label: 'Bonds' },
-  { id: 'gem',    label: 'Gem' },
-  { id: 'fusion', label: 'Fusion' },
-  { id: 'story',  label: 'Story' },
+  { id: 'roll',    label: 'Roll' },
+  { id: 'bonds',   label: 'Bonds' },
+  { id: 'gem',     label: 'Gem' },
+  { id: 'fusion',  label: 'Fusion' },
+  { id: 'story',   label: 'Story' },
+  { id: 'advance', label: 'Advance' },
 ]
 
 export function CharacterSheet({ character, roomId, onUpdate, onRoll }: Props) {
@@ -409,12 +393,12 @@ export function CharacterSheet({ character, roomId, onUpdate, onRoll }: Props) {
       <StatBlock character={character} onUpdate={onUpdate} />
 
       {/* Tabs */}
-      <div className="shrink-0 flex border-b border-sl-border mt-2">
+      <div className="shrink-0 flex overflow-x-auto border-b border-sl-border mt-2">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 py-1.5 text-xs font-mono transition-colors
+            className={`shrink-0 px-3 py-1.5 text-xs font-mono whitespace-nowrap transition-colors
               ${tab === t.id ? 'text-sl-accent border-b-2 border-sl-accent' : 'text-sl-muted hover:text-sl-text'}`}
           >
             {t.label}
@@ -433,8 +417,9 @@ export function CharacterSheet({ character, roomId, onUpdate, onRoll }: Props) {
           />
         )}
         {tab === 'gem'    && <GemTab character={character} onUpdate={onUpdate} />}
-        {tab === 'fusion' && <FusionPanel roomId={roomId} characterName={character.name} />}
-        {tab === 'story'  && <StoryTab character={character} onUpdate={onUpdate} />}
+        {tab === 'fusion'  && <FusionPanel roomId={roomId} characterName={character.name} />}
+        {tab === 'story'   && <StoryTab character={character} onUpdate={onUpdate} />}
+        {tab === 'advance' && <AdvanceTab character={character} onUpdate={onUpdate} />}
       </div>
     </div>
   )

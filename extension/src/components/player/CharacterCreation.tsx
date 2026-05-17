@@ -1,11 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import OBR from '@owlbear-rodeo/sdk'
 import {
   ARCHETYPES, GEM_TYPES, GEM_TYPE_KEYS, STAT_KEYS, STAT_NAMES, STAT_DESCS, COURTS,
   BACKSTORY_QUESTIONS, WEAPON_TAG_LABELS, getGemTypesForArchetype,
 } from '../../lib/character-defaults'
+import { supabase } from '../../lib/supabase'
+import type { NPC } from '../../lib/character-defaults'
+import type { FusionSheet } from '../../types/fusion'
 import type { Character, ArchetypeKey, GemType, StatKey, Bond, WeaponTag, Weapon } from '../../types/character'
 
+const FUSIONS_META_KEY = 'sl_fusions'
+const CUSTOM_VAL       = '__custom__'
+
 interface Props {
+  roomId: string
   onComplete: (char: Character) => void
 }
 
@@ -21,7 +29,7 @@ function StepBar({ step }: { step: number }) {
   )
 }
 
-export function CharacterCreation({ onComplete }: Props) {
+export function CharacterCreation({ roomId, onComplete }: Props) {
   const [step, setStep]               = useState(1)
   const [name, setName]               = useState('')
   const [pronouns, setPronouns]       = useState('')
@@ -38,11 +46,32 @@ export function CharacterCreation({ onComplete }: Props) {
   const [developedPower, setDevPower]   = useState<string | null>(null)
   const [signatureMove, setSigMove]   = useState('')
   const [bonds, setBonds]             = useState<Bond[]>([])
-  const [newBondName, setNewBondName] = useState('')
+  const [newBondNameSel, setNewBondNameSel]     = useState('')
+  const [newBondNameCustom, setNewBondNameCustom] = useState('')
   const [newBondNote, setNewBondNote] = useState('')
   const [newBondRating, setNewBondRating] = useState(1)
   const [backstory, setBackstory]     = useState<Record<string, string>>({})
   const [notes, setNotes]             = useState('')
+  const [partyNames, setPartyNames]   = useState<string[]>([])
+  const [npcNames, setNpcNames]       = useState<string[]>([])
+  const [fusionNames, setFusionNames] = useState<string[]>([])
+
+  useEffect(() => {
+    OBR.onReady(async () => {
+      const players = await OBR.party.getPlayers()
+      setPartyNames(players.map(p => (p.metadata?.['sl'] as { name?: string } | undefined)?.name || p.name))
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!roomId) return
+    supabase.from('npcs').select('npc_data').eq('room_id', roomId).maybeSingle()
+      .then(({ data }) => setNpcNames(((data?.npc_data as NPC[]) ?? []).map(n => n.name).filter(Boolean)))
+    OBR.onReady(async () => {
+      const meta = await OBR.room.getMetadata()
+      setFusionNames(((meta[FUSIONS_META_KEY] as FusionSheet[]) ?? []).map(f => f.name))
+    })
+  }, [roomId])
 
   const archDef = archetype ? ARCHETYPES[archetype] : null
   const gemDef  = gemType   ? GEM_TYPES[gemType]   : null
@@ -60,6 +89,8 @@ export function CharacterCreation({ onComplete }: Props) {
     setStats({ ...stats, [stat]: next })
   }
 
+  const newBondName = newBondNameSel === CUSTOM_VAL ? newBondNameCustom : newBondNameSel
+
   function addBond() {
     if (!newBondName.trim() || bonds.length >= 5) return
     setBonds([...bonds, {
@@ -68,7 +99,7 @@ export function CharacterCreation({ onComplete }: Props) {
       rating: newBondRating,
       note: newBondNote.trim(),
     }])
-    setNewBondName(''); setNewBondNote(''); setNewBondRating(1)
+    setNewBondNameSel(''); setNewBondNameCustom(''); setNewBondNote(''); setNewBondRating(1)
   }
 
   function canAdvance(): boolean {
@@ -463,7 +494,32 @@ export function CharacterCreation({ onComplete }: Props) {
             </div>
             <div className="border border-dashed border-sl-border rounded p-3 space-y-2">
               <p className="text-xs text-sl-muted">Add a starting Bond</p>
-              <input className={inputCls} value={newBondName} onChange={e => setNewBondName(e.target.value)} placeholder="Gem's name" onKeyDown={e => e.key === 'Enter' && addBond()} />
+              {(() => {
+                type G = 'Players' | 'NPCs' | 'Fusions'
+                const opts: Array<{ value: string; group: G }> = [
+                  ...partyNames.map(v => ({ value: v, group: 'Players' as G })),
+                  ...npcNames.map(v => ({ value: v, group: 'NPCs' as G })),
+                  ...fusionNames.map(v => ({ value: v, group: 'Fusions' as G })),
+                ]
+                const grouped: Partial<Record<G, typeof opts>> = {}
+                for (const o of opts) { if (!grouped[o.group]) grouped[o.group] = []; grouped[o.group]!.push(o) }
+                return (
+                  <>
+                    <select className={inputCls} value={newBondNameSel} onChange={e => setNewBondNameSel(e.target.value)}>
+                      <option value="">— Select —</option>
+                      {(['Players','NPCs','Fusions'] as G[]).map(g => grouped[g]?.length ? (
+                        <optgroup key={g} label={g}>
+                          {grouped[g]!.map(o => <option key={o.value} value={o.value}>{o.value}</option>)}
+                        </optgroup>
+                      ) : null)}
+                      <option value={CUSTOM_VAL}>Custom…</option>
+                    </select>
+                    {newBondNameSel === CUSTOM_VAL && (
+                      <input className={inputCls} value={newBondNameCustom} onChange={e => setNewBondNameCustom(e.target.value)} placeholder="Gem's name" onKeyDown={e => e.key === 'Enter' && addBond()} />
+                    )}
+                  </>
+                )
+              })()}
               <div className="flex items-center gap-2">
                 <label className="text-xs text-sl-muted">Rating:</label>
                 {[1,2,3].map(n => (

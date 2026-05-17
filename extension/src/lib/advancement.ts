@@ -14,6 +14,11 @@ export function requiresSignificantMoment(stat: StatKey, currentVal: number, opt
   return false
 }
 
+// XP cost to advance a stat BEYOND the archetype ceiling (double the normal cost)
+export function statBeyondCeilingCost(currentVal: number): number {
+  return statAdvanceCost(currentVal) * 2
+}
+
 // XP cost for the nth advanced power (0-indexed: first unlock = index 0 → 2 XP)
 export function powerAdvanceCost(ownedCount: number): number {
   return ownedCount + 2

@@ -191,7 +191,7 @@ export function PlayerView({ supabaseUserId, playerId, playerName, roomId, userE
           <button onClick={() => setView('menu')} className="text-xs text-sl-muted hover:text-sl-text">← Back</button>
         </div>
         <div className="flex-1 overflow-hidden">
-          <CharacterCreation onComplete={async char => { await saveCharacter(char, createSlot); setActiveSlot(createSlot); setView('sheet') }} />
+          <CharacterCreation roomId={roomId} onComplete={async char => { await saveCharacter(char, createSlot); setActiveSlot(createSlot); setView('sheet') }} />
         </div>
       </div>
     )
