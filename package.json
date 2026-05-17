@@ -1,6 +1,6 @@
 {
   "private": true,
   "scripts": {
-    "build": "cd extension && npm ci && npm run build && cd .. && mkdir -p dist/app && cp -r extension/dist/* dist/app/ && cp index.html dist/index.html"
+    "build": "cd extension && npm ci && npm run build && cd .. && mkdir -p dist/app && cp -r extension/dist/* dist/app/ && cp index.html dist/index.html && cp shattered_light.pdf dist/shattered_light.pdf"
   }
 }
