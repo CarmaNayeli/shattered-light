@@ -35,9 +35,10 @@ const RATING_LABELS: Record<number, string> = {
 }
 
 export function BondsPanel({ bonds, onChange }: Props) {
-  const [newName, setNewName]   = useState('')
-  const [newNote, setNewNote]   = useState('')
-  const [editing, setEditing]   = useState<string | null>(null)
+  const [newName, setNewName]         = useState('')
+  const [newNote, setNewNote]         = useState('')
+  const [editing, setEditing]         = useState<string | null>(null)
+  const [confirmDelete, setConfirm]   = useState<string | null>(null)
 
   function addBond() {
     if (!newName.trim()) return
@@ -80,12 +81,12 @@ export function BondsPanel({ bonds, onChange }: Props) {
               <RatingDots rating={bond.rating} onChange={n => updateRating(bond.id, n)} />
               <button onClick={() => setEditing(editing === bond.id ? null : bond.id)}
                 className="text-xs text-sl-muted hover:text-sl-text transition-colors">edit</button>
-              <button onClick={() => removeBond(bond.id)}
+              <button onClick={() => { setConfirm(bond.id); setEditing(null) }}
                 className="text-xs text-sl-muted hover:text-sl-danger transition-colors">✕</button>
             </div>
           </div>
           <p className="text-xs text-sl-muted">{RATING_LABELS[bond.rating]} · +{Math.min(4, bond.rating)}d6 bonus</p>
-          {editing === bond.id ? (
+          {editing === bond.id && confirmDelete !== bond.id ? (
             <textarea
               className="w-full bg-sl-bg border border-sl-border rounded px-2 py-1.5 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent resize-none"
               rows={2}
@@ -93,9 +94,20 @@ export function BondsPanel({ bonds, onChange }: Props) {
               value={bond.note}
               onChange={e => updateNote(bond.id, e.target.value)}
             />
-          ) : bond.note ? (
+          ) : bond.note && confirmDelete !== bond.id ? (
             <p className="text-xs text-sl-muted italic">"{bond.note}"</p>
           ) : null}
+          {confirmDelete === bond.id && (
+            <div className="border border-red-500/40 rounded p-2 space-y-1.5 bg-red-500/5">
+              <p className="text-xs text-sl-muted text-center">Remove Bond with <span className="text-sl-text font-medium">{bond.targetName}</span>?</p>
+              <div className="flex gap-2">
+                <button onClick={() => { removeBond(bond.id); setConfirm(null) }}
+                  className="flex-1 py-1 rounded bg-red-600 text-white text-xs font-semibold">Remove</button>
+                <button onClick={() => setConfirm(null)}
+                  className="flex-1 py-1 rounded border border-sl-border text-sl-muted text-xs">Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       ))}
 

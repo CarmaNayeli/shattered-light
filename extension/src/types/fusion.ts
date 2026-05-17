@@ -18,5 +18,6 @@ export interface FusionSheet {
   signatureMove1: string // physical
   signatureMove2: string // relational
   relationshipNote: string
+  notes: string
   createdAt: number
 }

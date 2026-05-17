@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
+import OBR from '@owlbear-rodeo/sdk'
 import { useOBR } from './hooks/useOBR'
+import { useChat } from './hooks/useChat'
+import { useFusion } from './hooks/useFusion'
 import { supabase } from './lib/supabase'
 import { PlayerView } from './components/player/PlayerView'
 import { GMView } from './components/gm/GMView'
 import { ChatPanel } from './components/shared/ChatPanel'
+import { FusionSheetView } from './components/player/FusionPanel'
 import type { User } from '@supabase/supabase-js'
 
 const RESET_REDIRECT = 'https://shattered-light.vercel.app/app/'
@@ -132,6 +136,34 @@ function SetNewPasswordForm({ onDone }: { onDone: () => void }) {
   )
 }
 
+function FusionMode({ fusionId }: { fusionId: string }) {
+  const obr = useOBR()
+  const { fusions, saveFusion, updateHarmony } = useFusion(obr.roomId)
+  const { announceRoll } = useChat(obr.playerId, obr.playerName)
+  const fusion = fusions.find(f => f.id === fusionId)
+  const popoverId = `sl-fusion-${fusionId.slice(0, 8)}`
+
+  if (!obr.ready) return (
+    <div className="flex items-center justify-center h-full bg-sl-bg">
+      <p className="text-sl-muted text-xs">Connecting…</p>
+    </div>
+  )
+  if (!fusion) return (
+    <div className="flex items-center justify-center h-full bg-sl-bg">
+      <p className="text-sl-muted text-xs">Loading fusion…</p>
+    </div>
+  )
+  return (
+    <FusionSheetView
+      fusion={fusion}
+      onUpdate={saveFusion}
+      onUpdateHarmony={n => updateHarmony(fusionId, n)}
+      onClose={() => OBR.popover.close(popoverId)}
+      onRoll={announceRoll}
+    />
+  )
+}
+
 export function App() {
   const obr = useOBR()
 
@@ -148,6 +180,11 @@ export function App() {
     )
     return <ChatPanel playerId={obr.playerId} playerName={chatCharName} />
   }
+
+  // Fusion sheet popover mode — skip auth, render just the fusion sheet
+  const isFusionMode = params.get('mode') === 'fusion'
+  const fusionId     = params.get('fusionId') ?? ''
+  if (isFusionMode) return <FusionMode fusionId={fusionId} />
 
   const [authView, setAuthView] = useState<AuthView>('loading')
   const [user, setUser]         = useState<User | null>(null)
