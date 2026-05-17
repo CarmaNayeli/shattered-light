@@ -203,7 +203,7 @@ export function RollPanel({ character, onRoll }: Props) {
           <div className="flex gap-2"><span className="text-sl-success w-4">6</span><span>Clean success</span></div>
           <div className="flex gap-2"><span className="text-sl-partial w-4">4–5</span><span>Success with cost</span></div>
           <div className="flex gap-2"><span className="text-sl-miss w-4">1–3</span><span>Miss — GM moves</span></div>
-          <div className="flex gap-2"><span className="text-sl-harmony w-4">66+</span><span>Resonance result</span></div>
+          <div className="flex gap-2"><span className="text-sl-harmony w-8">2+ 6s</span><span>Resonance result</span></div>
         </div>
       </div>
     </div>
