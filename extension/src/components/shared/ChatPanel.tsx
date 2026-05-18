@@ -57,6 +57,15 @@ function ManualRollMessage({ msg }: { msg: ChatMessage }) {
   )
 }
 
+function MoveMessage({ msg }: { msg: ChatMessage }) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-sm font-semibold text-sl-accent">{msg.moveName}</p>
+      {msg.moveDesc && <p className="text-xs text-sl-muted italic leading-snug">{msg.moveDesc}</p>}
+    </div>
+  )
+}
+
 export function ChatPanel({ playerId, playerName, accentColor }: Props) {
   const { messages, sendChat, announceRoll } = useChat(playerId, playerName, accentColor)
   const [input, setInput] = useState('')
@@ -101,6 +110,7 @@ export function ChatPanel({ playerId, playerName, accentColor }: Props) {
             {msg.type === 'chat'        && <p className="text-sm text-sl-text">{msg.text}</p>}
             {msg.type === 'roll_pool'   && <RollMessage msg={msg} />}
             {msg.type === 'roll_manual' && <ManualRollMessage msg={msg} />}
+            {msg.type === 'move'        && <MoveMessage msg={msg} />}
           </div>
         ))}
         <div ref={bottomRef} />

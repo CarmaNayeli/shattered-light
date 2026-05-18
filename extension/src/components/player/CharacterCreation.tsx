@@ -120,7 +120,12 @@ export function CharacterCreation({ roomId, onComplete }: Props) {
     if (!archetype || !gemType || !gemDef || !archDef) return
     const weapon: Weapon = weaponIdx === -1
       ? { name: customWeaponName.trim(), tags: customWeaponTags }
-      : { name: gemDef.weapons[weaponIdx!].name, tags: gemDef.weapons[weaponIdx!].tags as WeaponTag[] }
+      : {
+          name:   gemDef.weapons[weaponIdx!].name,
+          tags:   gemDef.weapons[weaponIdx!].tags as WeaponTag[],
+          toHit:  gemDef.weapons[weaponIdx!].toHit,
+          damage: gemDef.weapons[weaponIdx!].damage,
+        }
     const char: Character = {
       id:         crypto.randomUUID(),
       name:       name.trim() || gemDef.label,
@@ -465,6 +470,7 @@ export function CharacterCreation({ roomId, onComplete }: Props) {
                 <p>"When I've been dismissed in this scene, my next roll gets bonus dice equal to how many times."</p>
                 <p>"When I tell the truth about something I've been hiding, every gem who hears it gets a bonus die."</p>
                 <p>"When everything has failed and I'm the last one standing, I don't poof."</p>
+                <p>"When I fuse with another gem, the fusion begins with one additional Harmony box, to a maximum of 5."</p>
               </div>
             </div>
             <div>

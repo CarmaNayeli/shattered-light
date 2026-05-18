@@ -1,4 +1,4 @@
-export type MessageType = 'chat' | 'roll_pool' | 'roll_manual' | 'system'
+export type MessageType = 'chat' | 'roll_pool' | 'roll_manual' | 'system' | 'move'
 export type RollOutcome = 'success' | 'partial' | 'miss'
 
 export interface ChatMessage {
@@ -21,4 +21,7 @@ export interface ChatMessage {
   formula?: string
   total?: number
   breakdown?: string
+  // move announcement
+  moveName?: string
+  moveDesc?: string
 }

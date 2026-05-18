@@ -4,7 +4,8 @@ import { BondsPanel } from './BondsPanel'
 import { FusionPanel } from './FusionPanel'
 import { STAT_KEYS, STAT_NAMES, getArchetype, getGemType, WEAPON_TAG_LABELS, BACKSTORY_QUESTIONS } from '../../lib/character-defaults'
 import { statAdvanceCost, statBeyondCeilingCost, requiresSignificantMoment, powerAdvanceCost } from '../../lib/advancement'
-import type { Character } from '../../types/character'
+import { rollPool, highest, secondHighest, getOutcome, isResonance, parseDiceFormula } from '../../lib/dice'
+import type { Character, StatKey } from '../../types/character'
 import type { ChatMessage } from '../../types/chat'
 
 type Tab = 'roll' | 'bonds' | 'gem' | 'fusion' | 'story' | 'advance'
@@ -74,11 +75,78 @@ function StatBlock({ character, onUpdate }: { character: Character; onUpdate: (c
   )
 }
 
-function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: Character) => void }) {
+function UseButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="shrink-0 text-xs px-2 py-0.5 rounded border border-sl-accent text-sl-accent hover:bg-sl-accent hover:text-sl-accent-fg transition-colors">
+      Use
+    </button>
+  )
+}
+
+function GemTab({ character, onUpdate, onRoll }: {
+  character: Character
+  onUpdate: (c: Character) => void
+  onRoll: (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'playerId' | 'playerName'>) => void
+}) {
   const gemDef  = getGemType(character.gemType)
   const archDef = getArchetype(character.archetype)
   const [editSig, setEditSig] = useState(false)
   const [sigText, setSigText] = useState(character.signatureMove)
+
+  function announce(moveName: string, moveDesc: string) {
+    onRoll({ type: 'move', moveName, moveDesc })
+  }
+
+  function rollToHit() {
+    const raw = (character.weapon.toHit ?? '').trim().toLowerCase()
+    const statKey = (Object.keys(STAT_NAMES) as StatKey[]).find(k => STAT_NAMES[k].toLowerCase() === raw)
+    if (!statKey) return
+    const val = statKey === 'form'
+      ? Math.max(0, character.stats.form - character.formDamage)
+      : character.stats[statKey]
+    if (val <= 0) return
+    const dice = rollPool(val)
+    const high = highest(dice)
+    onRoll({
+      type: 'roll_pool',
+      rollLabel: `${character.weapon.name} — To Hit (${STAT_NAMES[statKey]})`,
+      dice,
+      highest: high,
+      outcome: getOutcome(high),
+      isResonance: isResonance(dice),
+      collateral: secondHighest(dice),
+    })
+  }
+
+  function rollDamage() {
+    const raw = (character.weapon.damage ?? '').trim()
+    if (!raw || raw === '—') return
+    const clean = raw.toLowerCase().replace(/\s*each\s*/g, '').trim()
+    const result = parseDiceFormula(clean)
+    if (result) {
+      onRoll({
+        type: 'roll_manual',
+        rollLabel: `${character.weapon.name} — Damage`,
+        formula: raw,
+        total: result.total,
+        breakdown: result.breakdown,
+      })
+    } else {
+      onRoll({ type: 'chat', text: `${character.weapon.name} — Damage: ${raw}` })
+    }
+  }
+
+  const statKey = (Object.keys(STAT_NAMES) as StatKey[]).find(
+    k => STAT_NAMES[k].toLowerCase() === (character.weapon.toHit ?? '').trim().toLowerCase()
+  )
+  const canRollToHit = !!statKey && (
+    statKey === 'form'
+      ? Math.max(0, character.stats.form - character.formDamage) > 0
+      : character.stats[statKey] > 0
+  )
+  const canRollDamage = !!character.weapon.damage && character.weapon.damage !== '—'
 
   return (
     <div className="space-y-4 p-3">
@@ -92,8 +160,11 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
         </div>
         <p className="font-semibold text-sl-text">{archDef.label}</p>
         <p className="text-xs text-sl-muted italic">{archDef.tagline}</p>
-        <div className="pt-1 border-t border-sl-border">
-          <p className="text-xs font-semibold text-sl-text">{archDef.startingMove}</p>
+        <div className="pt-1 border-t border-sl-border space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-sl-text">{archDef.startingMove}</p>
+            <UseButton onClick={() => announce(archDef.startingMove, archDef.startingMoveDesc)} />
+          </div>
           <p className="text-xs text-sl-muted">{archDef.startingMoveDesc}</p>
         </div>
         <div className="pt-1">
@@ -112,31 +183,75 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
       </div>
 
       {/* Weapon */}
-      <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
+      <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-2">
         <p className="text-xs text-sl-muted font-mono uppercase">Weapon</p>
         <p className="font-semibold text-sl-text">{character.weapon.name}</p>
-        <div className="flex gap-1 flex-wrap mt-1">
+        <div className="flex gap-1 flex-wrap">
           {character.weapon.tags.map(tag => (
             <span key={tag} className="text-xs bg-sl-indigo/20 text-sl-text border border-sl-indigo/30 rounded px-1.5 py-0.5">
               {WEAPON_TAG_LABELS[tag]}
             </span>
           ))}
         </div>
+        <div className="space-y-1.5 pt-1">
+          <div>
+            <label className="block text-xs text-sl-muted mb-0.5">To Hit</label>
+            <div className="flex gap-1.5">
+              <input
+                className="flex-1 bg-sl-bg border border-sl-border rounded px-2 py-1 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent"
+                placeholder="e.g. Form"
+                value={character.weapon.toHit ?? ''}
+                onChange={e => onUpdate({ ...character, weapon: { ...character.weapon, toHit: e.target.value } })}
+              />
+              <button
+                onClick={rollToHit}
+                disabled={!canRollToHit}
+                className="shrink-0 text-xs px-2 py-1 rounded border border-sl-accent text-sl-accent hover:bg-sl-accent hover:text-sl-accent-fg disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Roll
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-sl-muted mb-0.5">Damage</label>
+            <div className="flex gap-1.5">
+              <input
+                className="flex-1 bg-sl-bg border border-sl-border rounded px-2 py-1 text-xs text-sl-text placeholder-sl-muted focus:outline-none focus:border-sl-accent"
+                placeholder="e.g. 2d6"
+                value={character.weapon.damage ?? ''}
+                onChange={e => onUpdate({ ...character, weapon: { ...character.weapon, damage: e.target.value } })}
+              />
+              <button
+                onClick={rollDamage}
+                disabled={!canRollDamage}
+                className="shrink-0 text-xs px-2 py-1 rounded border border-sl-accent text-sl-accent hover:bg-sl-accent hover:text-sl-accent-fg disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Roll
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Core power */}
       <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
-        <p className="text-xs text-sl-muted font-mono uppercase">Core Power — {gemDef.label}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-sl-muted font-mono uppercase">Core Power — {gemDef.label}</p>
+          <UseButton onClick={() => announce(gemDef.corePower.name, gemDef.corePower.desc)} />
+        </div>
         <p className="font-semibold text-sl-text">{gemDef.corePower.name}</p>
         <p className="text-xs text-sl-muted">{gemDef.corePower.desc}</p>
       </div>
 
       {/* Developed power(s) */}
       {[character.developedPower, ...(character.additionalPowers ?? [])].filter(Boolean).map(pName => {
-        const def = gemDef.developedPowers.find(p => p.name === pName)
+        const allPowers = [...gemDef.developedPowers, ...(gemDef.advancedPowers ?? [])]
+        const def = allPowers.find(p => p.name === pName)
+        const label = def?.advanced ? 'Advanced Power' : 'Developed Power'
         return (
           <div key={pName} className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
-            <p className="text-xs text-sl-muted font-mono uppercase">Developed Power</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-sl-muted font-mono uppercase">{label}</p>
+              {def && <UseButton onClick={() => announce(def.name, def.desc)} />}
+            </div>
             {def ? (
               <>
                 <p className="font-semibold text-sl-text">{def.name}</p>
@@ -171,7 +286,12 @@ function GemTab({ character, onUpdate }: { character: Character; onUpdate: (c: C
             </button>
           </div>
         ) : (
-          <p className="text-sm text-sl-text italic">{character.signatureMove || 'Not yet written.'}</p>
+          <div className="space-y-1.5">
+            <p className="text-sm text-sl-text italic">{character.signatureMove || 'Not yet written.'}</p>
+            {character.signatureMove && (
+              <UseButton onClick={() => announce('Signature Move', character.signatureMove)} />
+            )}
+          </div>
         )}
       </div>
 
@@ -448,8 +568,8 @@ export function CharacterSheet({ character, roomId, onUpdate, onRoll }: Props) {
             onChange={bonds => onUpdate({ ...character, bonds })}
           />
         )}
-        {tab === 'gem'    && <GemTab character={character} onUpdate={onUpdate} />}
-        {tab === 'fusion'  && <FusionPanel roomId={roomId} characterName={character.name} />}
+        {tab === 'gem'    && <GemTab character={character} onUpdate={onUpdate} onRoll={onRoll} />}
+        {tab === 'fusion'  && <FusionPanel roomId={roomId} characterName={character.name} characterResonance={character.stats.resonance} onRoll={onRoll} />}
         {tab === 'story'   && <StoryTab character={character} onUpdate={onUpdate} />}
         {tab === 'advance' && <AdvanceTab character={character} onUpdate={onUpdate} />}
       </div>

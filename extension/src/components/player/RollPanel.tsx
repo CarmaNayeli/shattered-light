@@ -9,10 +9,16 @@ interface Props {
   onRoll: (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'playerId' | 'playerName'>) => void
 }
 
+type Modifier = 'normal' | 'advantage' | 'disadvantage'
+
 export function RollPanel({ character, onRoll }: Props) {
-  const [activeStat, setActiveStat]   = useState<StatKey | null>(null)
-  const [activeBond, setActiveBond]   = useState<string | null>(null)
-  const [lastRoll, setLastRoll]       = useState<{ dice: number[]; stat: StatKey; bondName?: string } | null>(null)
+  const [activeStat, setActiveStat]     = useState<StatKey | null>(null)
+  const [activeBond, setActiveBond]     = useState<string | null>(null)
+  const [modifier, setModifier]         = useState<Modifier>('normal')
+  const [diamondPressure, setDiamond]   = useState(false)
+  const [lastRoll, setLastRoll]         = useState<{
+    dice: number[]; droppedDie?: number; stat: StatKey; bondName?: string
+  } | null>(null)
 
   const { stats, bonds, formDamage } = character
 
@@ -22,10 +28,14 @@ export function RollPanel({ character, onRoll }: Props) {
   }
 
   function bondDice(): number {
+    // Diamond authority pressure: all bond ratings stack
+    if (diamondPressure && activeStat === 'resolve') {
+      return bonds.reduce((sum, b) => sum + Math.min(4, b.rating), 0)
+    }
     if (!activeBond) return 0
     const bond = bonds.find(b => b.id === activeBond)
     if (!bond) return 0
-    return Math.min(4, bond.rating) // Bond 5 = 4 bonus dice (the cap)
+    return Math.min(4, bond.rating)
   }
 
   function poolSize(): number {
@@ -37,26 +47,45 @@ export function RollPanel({ character, onRoll }: Props) {
     if (!activeStat) return
     const pool = poolSize()
     if (pool <= 0) return
-    const dice = rollPool(pool)
-    const high  = highest(dice)
-    const second = secondHighest(dice)
-    const outcome = getOutcome(high)
-    const res = isResonance(dice)
-    const bond = activeBond ? bonds.find(b => b.id === activeBond) : null
-    const label = bond
-      ? `${STAT_NAMES[activeStat]} + ${bond.targetName}`
-      : STAT_NAMES[activeStat]
 
-    setLastRoll({ dice, stat: activeStat, bondName: bond?.targetName })
+    let rolled = rollPool(modifier !== 'normal' ? pool + 1 : pool)
+    let droppedDie: number | undefined
+
+    if (modifier === 'disadvantage') {
+      const maxVal = Math.max(...rolled)
+      const dropIdx = rolled.indexOf(maxVal)
+      droppedDie = maxVal
+      rolled = [...rolled.slice(0, dropIdx), ...rolled.slice(dropIdx + 1)]
+    } else if (modifier === 'advantage') {
+      const minVal = Math.min(...rolled)
+      const dropIdx = rolled.indexOf(minVal)
+      droppedDie = minVal
+      rolled = [...rolled.slice(0, dropIdx), ...rolled.slice(dropIdx + 1)]
+    }
+
+    const high   = highest(rolled)
+    const second = secondHighest(rolled)
+    const outcome = getOutcome(high)
+    const res = isResonance(rolled)
+    const bond = (!diamondPressure || activeStat !== 'resolve') && activeBond
+      ? bonds.find(b => b.id === activeBond)
+      : null
+
+    const modSuffix = modifier === 'advantage' ? ' (adv)' : modifier === 'disadvantage' ? ' (dis)' : ''
+    const pressureSuffix = diamondPressure && activeStat === 'resolve' ? ' [Diamond pressure]' : ''
+    const bondLabel = bond ? ` + ${bond.targetName}` : diamondPressure && activeStat === 'resolve' && bonds.length > 0 ? ' + all bonds' : ''
+    const label = `${STAT_NAMES[activeStat]}${bondLabel}${modSuffix}${pressureSuffix}`
+
+    setLastRoll({ dice: rolled, droppedDie, stat: activeStat, bondName: bond?.targetName })
 
     onRoll({
-      type:       'roll_pool',
-      rollLabel:  label,
-      dice,
-      highest:    high,
+      type:        'roll_pool',
+      rollLabel:   label,
+      dice:        rolled,
+      highest:     high,
       outcome,
       isResonance: res,
-      collateral: second,
+      collateral:  second,
     })
   }
 
@@ -90,8 +119,19 @@ export function RollPanel({ character, onRoll }: Props) {
         </div>
       </div>
 
+      {/* Diamond pressure toggle (Resolve only) */}
+      {activeStat === 'resolve' && bonds.length > 0 && (
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={diamondPressure} onChange={e => { setDiamond(e.target.checked); if (e.target.checked) setActiveBond(null) }}
+            className="accent-[var(--sl-accent)] w-3 h-3" />
+          <span className="text-xs text-sl-muted">
+            Diamond authority — all bonds stack (+{bonds.reduce((s, b) => s + Math.min(4, b.rating), 0)}d6 total)
+          </span>
+        </label>
+      )}
+
       {/* Bond selector */}
-      {bonds.length > 0 && (
+      {bonds.length > 0 && !diamondPressure && (
         <div>
           <p className="text-xs text-sl-muted mb-2 uppercase tracking-wide font-mono">Add Bond dice (optional)</p>
           <div className="space-y-1">
@@ -120,6 +160,21 @@ export function RollPanel({ character, onRoll }: Props) {
         </div>
       )}
 
+      {/* Advantage / disadvantage */}
+      <div className="flex gap-1">
+        {(['normal', 'advantage', 'disadvantage'] as Modifier[]).map(m => (
+          <button key={m} onClick={() => setModifier(modifier === m ? 'normal' : m)}
+            className={`flex-1 text-xs py-1 rounded border transition-colors capitalize
+              ${modifier === m
+                ? m === 'advantage'    ? 'border-sl-success text-sl-success bg-sl-success/10'
+                : m === 'disadvantage' ? 'border-sl-danger text-sl-danger bg-sl-danger/10'
+                : 'border-sl-accent text-sl-accent bg-sl-accent/10'
+                : 'border-sl-border text-sl-muted hover:border-sl-accent'}`}>
+            {m === 'normal' ? 'Normal' : m === 'advantage' ? 'Adv +1 drop low' : 'Dis +1 drop high'}
+          </button>
+        ))}
+      </div>
+
       {/* Pool summary + roll */}
       <div className="border-t border-sl-border pt-3">
         <div className="flex items-center gap-3">
@@ -127,8 +182,10 @@ export function RollPanel({ character, onRoll }: Props) {
             {!activeStat && <p className="text-sm text-sl-muted">Select a stat above</p>}
             {activeStat && poolSize() > 0 && (
               <p className="text-sm text-sl-text">
-                Roll <span className="font-bold text-sl-accent">{poolSize()}d6</span>
-                {activeBond && <span className="text-sl-muted"> ({effectiveStat(activeStat)} stat + {bondDice()} bond)</span>}
+                Roll <span className="font-bold text-sl-accent">{modifier !== 'normal' ? poolSize() + 1 : poolSize()}d6</span>
+                {modifier !== 'normal' && <span className="text-sl-muted text-xs"> drop {modifier === 'disadvantage' ? 'highest' : 'lowest'}</span>}
+                {!diamondPressure && activeBond && <span className="text-sl-muted text-xs"> ({effectiveStat(activeStat!)} stat + {bondDice()} bond)</span>}
+                {diamondPressure && activeStat === 'resolve' && <span className="text-sl-muted text-xs"> ({effectiveStat('resolve')} + {bondDice()} all bonds)</span>}
               </p>
             )}
             {activeStat && poolSize() === 0 && (
@@ -154,6 +211,11 @@ export function RollPanel({ character, onRoll }: Props) {
             <span className="text-xs text-sl-muted font-mono uppercase">{STAT_NAMES[lastRoll.stat]}{lastRoll.bondName ? ` + ${lastRoll.bondName}` : ''}</span>
           </div>
           <div className="flex gap-1.5 flex-wrap">
+            {lastRoll.droppedDie !== undefined && (
+              <span className="w-7 h-7 flex items-center justify-center rounded text-sm font-bold border border-sl-border text-sl-muted/40 line-through opacity-50">
+                {lastRoll.droppedDie}
+              </span>
+            )}
             {lastRoll.dice.map((d, i) => {
               const isHigh = d === highest(lastRoll.dice) && i === lastRoll.dice.indexOf(d)
               const sixes = countSixes(lastRoll.dice)

@@ -118,6 +118,12 @@ The cost on a 4–5 is always chosen from the fiction. The GM picks one: you get
 
 ---
 
+## The Exchange
+
+An exchange is one unit of action in a conflict — a moment in which something happens, someone acts, and the situation shifts before the next moment begins. It isn't a strict clock; it's the fiction's natural rhythm. One exchange is roughly "my gem does a thing, and then the scene responds."
+
+---
+
 ## The Second Die — Collateral
 
 After reading your highest die, look at your second highest (if you rolled more than one). This die doesn't change your outcome but the GM can invoke it to add texture.
@@ -128,7 +134,7 @@ After reading your highest die, look at your second highest (if you rolled more 
 
 **Second die 1–2:** Something you didn't intend happened alongside your action. Not a failure — just a crack in the moment. A tell. A cost that might matter later.
 
-The GM doesn't have to invoke the second die every roll. It's a tool for scenes that need texture, not a mandatory extra complication. It matters most on successes, where it adds richness without undercutting the win.
+The GM doesn't have to invoke the second die every roll. It's a tool for scenes that need texture, not a mandatory extra complication. It matters most on successes, where it adds richness without undercutting the win. When rolling with advantage or disadvantage, the second die for Collateral purposes is the second highest of the dice remaining after the drop.
 
 ---
 
@@ -408,7 +414,7 @@ Pink Diamond, before her logic curdled into control, was genuinely curious about
 
 **Starting move — Open Channel:** When you attempt to de-escalate a conflict through conversation rather than force, you roll Resonance with an extra die. On a Resonance result, the enemy doesn't just stand down — they tell you something true about themselves or their orders.
 
-**The shadow:** Playing a Diplomat in a world where Pink Diamond is the villain is complicated. Your archetype shares her original logic. Gems who know this may not trust you immediately. The GM may occasionally have NPCs clock the resemblance between your instincts and hers. That's not a penalty. It's a story.
+**The shadow:** Playing a Diplomat in a world where Pink Diamond is the villain is complicated. Your archetype shares her original logic. Gems who know this may not trust you immediately. The GM may occasionally have NPCs clock the resemblance between your instincts and hers. Your Clarity can't advance past 3 until a gem — PC or NPC — explicitly confronts you about that resemblance, and instead of explaining it away, you sit with it and articulate, honestly, what makes your impulse different. That conversation has to cost you something. Once it happens, the ceiling lifts.
 
 ---
 
@@ -642,7 +648,7 @@ Weapons have one or two tags. Tags don't add dice — they determine what's poss
 
 **Heavy** — enough force to move large objects, break structures, or destabilize a fusion through sheer impact. Slow to reposition.
 
-**Finesse** — rewards precision over power. In situations calling for surgical accuracy, the GM may grant a bonus die.
+**Finesse** — rewards precision over power. In situations calling for surgical accuracy, the GM may grant advantage.
 
 ---
 
@@ -669,6 +675,8 @@ Weapons have one or two tags. Tags don't add dice — they determine what's poss
 **Amethyst:** Whip (Reach, Binding) / Flail (Heavy, Reach) / Dagger (Concealed, Finesse)
 
 **Bismuth:** Shifting weapon (Heavy, variable tag) / War hammer (Heavy, Area) / Breaking Point (Piercing, Heavy)
+
+*Bismuth's Shifting weapon has the Heavy tag fixed. Before each use, choose one additional tag from the standard list — the weapon takes that form until it's dismissed or re-summoned.*
 
 **Agate:** Whip (Reach, Binding) / Baton (Finesse, Heavy) / Energy lash (Reach, Area)
 
@@ -786,7 +794,7 @@ Beyond the core, each gem type has two or three developed powers to choose from.
 
 **TOPAZ**
 
-*Core — Containment field:* You generate a hardened energy construct around a target that immobilizes them completely. Requires physical contact to initiate and a Form roll to maintain. The field doesn't harm — it holds.
+*Core — Containment field:* You generate a hardened energy construct around a target that immobilizes them completely. Requires physical contact to initiate — roll Form to establish the field; on a 6 it seats cleanly, on a 4–5 it holds but something else happens (they saw you coming, you're closer than you wanted), on a 1–3 the contact is made but the field doesn't seat and you must try again next exchange. Once established, maintaining requires a Form roll each exchange. The field doesn't harm — it holds.
 
 *Developed — choose one:*
 - Fusion pressure: When fused with another Topaz (or any gem with GM approval), you can extend the containment field to cover a much larger area.
@@ -796,7 +804,7 @@ Beyond the core, each gem type has two or three developed powers to choose from.
 
 **JASPER**
 
-*Core — Perfect quartz:* Your form is exceptionally resilient. Once per conflict you may ignore the mechanical effects of a single significant hit — taking it narratively but suffering no Harmony loss or stat penalties from it.
+*Core — Perfect quartz:* Your form is exceptionally resilient. Once per conflict you may ignore the mechanical effects of a single significant hit — taking it narratively but suffering no Form damage or stat penalties from it.
 
 *Developed — choose one:*
 - Charge: You lower your head and close distance at full force, crashing through anything between you and your target. On a clean success the target is knocked back and destabilized — their next roll is at a disadvantage. You cannot easily stop or redirect mid-charge.
@@ -826,7 +834,7 @@ Beyond the core, each gem type has two or three developed powers to choose from.
 
 **BISMUTH**
 
-*Core — Constructs:* You shape gem-metal and hard light into structures, weapons, and tools on the fly. In combat this means environmental manipulation — barriers, traps, improvised weapons for allies. Outside combat your construction ability is nearly limitless given time and materials.
+*Core — Constructs:* You shape gem-metal and hard light into structures, weapons, and tools on the fly. In combat this means environmental manipulation — barriers, traps, improvised weapons for allies. Outside combat your construction ability is nearly limitless given time and materials. The Shifting weapon is an extension of this — Heavy is constant, but the second tag is chosen fresh each time it's summoned, representing whatever the moment calls for.
 
 *Developed — choose one:*
 - Forge: You permanently upgrade another gem's summoned weapon — adding a tag or enhancing an existing one. Requires time, physical contact with the weapon, and a scene of focused work. Lasts until the weapon is re-summoned from scratch.
@@ -840,7 +848,7 @@ Beyond the core, each gem type has two or three developed powers to choose from.
 
 *Developed — choose one:*
 - Terrify: A focused blast of your authority aura that temporarily overwhelms a single target's ability to access their Form or Resolve cleanly. One exchange.
-- Rally: The same aura turned toward allies. Once per conflict you steady a flagging gem — restoring one Harmony to a fusion or giving an ally a reroll on a failed Resolve check.
+- Rally: The same aura turned toward allies. Once per conflict you steady a flagging fusion — their next failed Harmony check doesn't cost a box. Alternatively, give an ally a reroll on a failed Resolve check.
 
 ---
 

@@ -11,6 +11,8 @@ import type { ChatMessage } from '../../types/chat'
 interface Props {
   roomId: string
   characterName: string
+  characterResonance?: number
+  onRoll?: (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'playerId' | 'playerName'>) => void
 }
 
 // ── Harmony ─────────────────────────────────────────────────────────────────
@@ -169,6 +171,24 @@ export function FusionSheetView({
   const [editing, setEditing]       = useState(false)
   const [editDraft, setEditDraft]   = useState<FusionSheet>(fusion)
   const [sceneNote, setSceneNote]   = useState('')
+  const [hcResolve, setHcResolve]   = useState(2)
+  const [lastHC, setLastHC]         = useState<{ dice: number[]; highest: number } | null>(null)
+
+  function rollHarmonyCheck() {
+    if (hcResolve <= 0) return
+    const dice = rollPool(hcResolve)
+    const high = highest(dice)
+    setLastHC({ dice, highest: high })
+    onRoll({
+      type: 'roll_pool',
+      rollLabel: `${fusion.name} — Harmony Check (Resolve ${hcResolve})`,
+      dice,
+      highest: high,
+      outcome: getOutcome(high),
+      isResonance: isResonance(dice),
+      collateral: secondHighest(dice),
+    })
+  }
 
   function startEdit() { setEditDraft(fusion); setEditing(true) }
   function cancelEdit() { setEditing(false) }
@@ -349,6 +369,53 @@ export function FusionSheetView({
               <div className="flex gap-2"><span className="text-sl-miss w-4">1–3</span><span>Miss — GM moves</span></div>
               <div className="flex gap-2"><span className="text-sl-harmony w-8">2+ 6s</span><span>Resonance</span></div>
             </div>
+
+            {/* Harmony Check */}
+            <div className="border-t border-sl-border pt-3 space-y-2">
+              <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Harmony Check</p>
+              <p className="text-xs text-sl-muted">Roll the lower of the two constituent gems' current Resolve.</p>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-sl-muted shrink-0">Lower Resolve</label>
+                <input type="number" min={0} max={5} value={hcResolve}
+                  onChange={e => setHcResolve(Math.max(0, Math.min(5, +e.target.value)))}
+                  className="w-14 bg-sl-bg border border-sl-border rounded px-2 py-1 text-xs text-sl-text text-center focus:outline-none focus:border-sl-harmony" />
+                <button onClick={rollHarmonyCheck} disabled={hcResolve <= 0}
+                  className="flex-1 py-1 rounded text-xs font-semibold border border-sl-harmony text-sl-harmony hover:bg-sl-harmony/10 disabled:opacity-40 transition-colors">
+                  Roll
+                </button>
+              </div>
+              {lastHC && (
+                <div className="bg-sl-surface border border-sl-border rounded p-2 space-y-1.5">
+                  <div className="flex gap-1 flex-wrap">
+                    {lastHC.dice.map((d, i) => (
+                      <span key={i} className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold border
+                        ${d === lastHC.highest && i === lastHC.dice.indexOf(lastHC.highest)
+                          ? 'bg-sl-harmony text-sl-bg border-sl-harmony'
+                          : 'bg-sl-bg text-sl-muted border-sl-border'}`}>{d}</span>
+                    ))}
+                  </div>
+                  <p className={`text-xs font-semibold
+                    ${lastHC.highest >= 6 ? 'text-sl-success' : lastHC.highest >= 4 ? 'text-sl-partial' : 'text-sl-danger'}`}>
+                    {lastHC.highest >= 6
+                      ? 'Hold — no box lost.'
+                      : lastHC.highest >= 4
+                        ? 'Hold, but — GM picks: lose a box or visibly compromise.'
+                        : 'Lose a box. GM makes a move.'}
+                  </p>
+                  {lastHC.highest <= 3 && (
+                    <button onClick={() => { onUpdate({ ...fusion, harmony: Math.max(0, fusion.harmony - 1) }); setLastHC(null) }}
+                      className="w-full py-1 rounded text-xs border border-sl-danger text-sl-danger hover:bg-sl-danger/10 transition-colors">
+                      Mark box lost (Harmony {fusion.harmony} → {fusion.harmony - 1})
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="text-xs text-sl-muted font-mono space-y-0.5 pt-1">
+                <div className="flex gap-2"><span className="text-sl-success w-4">6</span><span>Hold — no box lost</span></div>
+                <div className="flex gap-2"><span className="text-sl-partial w-4">4–5</span><span>Hold, but — GM picks: box or compromise</span></div>
+                <div className="flex gap-2"><span className="text-sl-danger w-4">1–3</span><span>Lose a box — GM moves</span></div>
+              </div>
+            </div>
           </>
         )}
 
@@ -356,13 +423,27 @@ export function FusionSheetView({
           <>
             {fusion.signatureMove1 && (
               <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
-                <p className="text-xs text-sl-muted font-mono uppercase">Physical Move</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-sl-muted font-mono uppercase">Physical Move</p>
+                  <button
+                    onClick={() => onRoll({ type: 'move', moveName: `${fusion.name} — Physical Move`, moveDesc: fusion.signatureMove1 })}
+                    className="text-xs px-2 py-0.5 rounded border border-sl-accent text-sl-accent hover:bg-sl-accent hover:text-sl-accent-fg transition-colors">
+                    Use
+                  </button>
+                </div>
                 <p className="text-xs text-sl-text italic">{fusion.signatureMove1}</p>
               </div>
             )}
             {fusion.signatureMove2 && (
               <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-1">
-                <p className="text-xs text-sl-muted font-mono uppercase">Relational Move</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-sl-muted font-mono uppercase">Relational Move</p>
+                  <button
+                    onClick={() => onRoll({ type: 'move', moveName: `${fusion.name} — Relational Move`, moveDesc: fusion.signatureMove2 })}
+                    className="text-xs px-2 py-0.5 rounded border border-sl-accent text-sl-accent hover:bg-sl-accent hover:text-sl-accent-fg transition-colors">
+                    Use
+                  </button>
+                </div>
                 <p className="text-xs text-sl-text italic">{fusion.signatureMove2}</p>
               </div>
             )}
@@ -504,13 +585,15 @@ export function FusionSheetView({
 
 // ── Main FusionPanel (list + open-as-popover) ────────────────────────────────
 
-export function FusionPanel({ roomId, characterName }: Props) {
+export function FusionPanel({ roomId, characterName, characterResonance = 0, onRoll }: Props) {
   const { fusions, saveFusion, deleteFusion, updateHarmony } = useFusion(roomId)
   const [creating, setCreating]             = useState(false)
   const [confirmDelete, setConfirmDelete]   = useState<string | null>(null)
   const [openPopovers, setOpenPopovers]     = useState<Set<string>>(new Set())
   const [partyNames, setPartyNames]         = useState<string[]>([])
   const [npcNames, setNpcNames]             = useState<string[]>([])
+  const [formationBond, setFormationBond]   = useState(1)
+  const [lastFormation, setLastFormation]   = useState<{ dice: number[]; highest: number } | null>(null)
 
   useEffect(() => {
     OBR.onReady(async () => {
@@ -538,6 +621,23 @@ export function FusionPanel({ roomId, characterName }: Props) {
   ]
 
   const myFusions = fusions.filter(f => f.constituent1 === characterName || f.constituent2 === characterName)
+
+  function rollFormation() {
+    const pool = characterResonance + formationBond
+    if (pool <= 0 || !onRoll) return
+    const dice = rollPool(pool)
+    const high = highest(dice)
+    setLastFormation({ dice, highest: high })
+    onRoll({
+      type: 'roll_pool',
+      rollLabel: `Formation Roll — ${characterName} (Resonance ${characterResonance} + Bond ${formationBond})`,
+      dice,
+      highest: high,
+      outcome: getOutcome(high),
+      isResonance: isResonance(dice),
+      collateral: secondHighest(dice),
+    })
+  }
 
   async function openFusionSheet(fusionId: string) {
     const popoverId = `sl-fusion-${fusionId.slice(0, 8)}`
@@ -570,6 +670,51 @@ export function FusionPanel({ roomId, characterName }: Props) {
         )}
       </div>
       <p className="text-xs text-sl-muted">Fusion sheets open as a separate panel. Harmony is tracked here and synced to all players in the room.</p>
+
+      {/* Formation Roll */}
+      {onRoll && (
+        <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-2">
+          <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Formation Roll</p>
+          <p className="text-xs text-sl-muted">Roll Resonance + Bond rating with your partner.</p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-sl-muted shrink-0">Resonance {characterResonance}</span>
+            <span className="text-xs text-sl-muted shrink-0">+</span>
+            <label className="text-xs text-sl-muted shrink-0">Bond</label>
+            <input type="number" min={0} max={5} value={formationBond}
+              onChange={e => setFormationBond(Math.max(0, Math.min(5, +e.target.value)))}
+              className="w-14 bg-sl-bg border border-sl-border rounded px-2 py-1 text-xs text-sl-text text-center focus:outline-none focus:border-sl-accent" />
+            <button onClick={rollFormation} disabled={characterResonance + formationBond <= 0}
+              className="flex-1 py-1 rounded text-xs font-semibold bg-sl-accent text-sl-accent-fg hover:opacity-90 disabled:opacity-40 transition-colors">
+              Roll {characterResonance + formationBond}d6
+            </button>
+          </div>
+          {lastFormation && (
+            <div className="space-y-1.5">
+              <div className="flex gap-1 flex-wrap">
+                {lastFormation.dice.map((d, i) => (
+                  <span key={i} className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold border
+                    ${d === lastFormation.highest && i === lastFormation.dice.indexOf(lastFormation.highest)
+                      ? 'bg-sl-accent text-sl-accent-fg border-sl-accent'
+                      : 'bg-sl-bg text-sl-muted border-sl-border'}`}>{d}</span>
+                ))}
+              </div>
+              <p className={`text-xs font-semibold
+                ${lastFormation.highest >= 6 ? 'text-sl-success' : lastFormation.highest >= 4 ? 'text-sl-partial' : 'text-sl-danger'}`}>
+                {lastFormation.highest >= 6
+                  ? 'Full Harmony — fuse cleanly.'
+                  : lastFormation.highest >= 4
+                    ? 'Harmony 3 — fuse, but something complicates it.'
+                    : 'Fusion doesn\'t form — try again next exchange.'}
+              </p>
+            </div>
+          )}
+          <div className="text-xs text-sl-muted font-mono space-y-0.5 pt-1 border-t border-sl-border">
+            <div className="flex gap-2"><span className="text-sl-success w-4">6</span><span>Full Harmony</span></div>
+            <div className="flex gap-2"><span className="text-sl-partial w-4">4–5</span><span>Harmony 3 — complication</span></div>
+            <div className="flex gap-2"><span className="text-sl-danger w-4">1–3</span><span>Doesn't form — next exchange</span></div>
+          </div>
+        </div>
+      )}
 
       {creating && (
         <NewFusionForm

@@ -26,6 +26,8 @@ export interface Bond {
 export interface Weapon {
   name: string
   tags: WeaponTag[]
+  toHit?: string    // e.g. "Form", "Radiance+1"
+  damage?: string   // e.g. "2d6", "1d6+Form"
 }
 
 export interface Character {
