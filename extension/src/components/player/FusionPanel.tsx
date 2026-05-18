@@ -3,6 +3,7 @@ import OBR from '@owlbear-rodeo/sdk'
 import { useFusion } from '../../hooks/useFusion'
 import { supabase } from '../../lib/supabase'
 import { rollPool, highest, secondHighest, getOutcome, outcomeLabel, isResonance, countSixes, collateralResult, collateralLabel } from '../../lib/dice'
+import { initDicePlus, getDicePlusState, rollViaDicePlus } from '../../lib/dicePlus'
 import { statAdvanceCost, requiresSignificantMoment } from '../../lib/advancement'
 import { STAT_KEYS, STAT_NAMES, STAT_ABBR } from '../../lib/character-defaults'
 import type { NPC } from '../../lib/character-defaults'
@@ -225,10 +226,28 @@ export function FusionSheetView({
   const [sceneNote, setSceneNote]   = useState('')
   const [hcResolve, setHcResolve]   = useState(2)
   const [lastHC, setLastHC]         = useState<{ dice: number[]; highest: number } | null>(null)
+  const [diceState, setDiceState]   = useState(() => getDicePlusState())
+  const [rolling, setRolling]       = useState(false)
 
-  function rollHarmonyCheck() {
-    if (hcResolve <= 0) return
-    const dice = rollPool(hcResolve)
+  useEffect(() => { initDicePlus() }, [])
+
+  async function rollDice(count: number): Promise<number[]> {
+    if (getDicePlusState() !== 'unavailable') {
+      try {
+        const [pid, pname] = await Promise.all([OBR.player.getId(), OBR.player.getName()])
+        const result = await rollViaDicePlus(count, pid, pname)
+        if (result) { setDiceState(getDicePlusState()); return result }
+      } catch { /* fall through */ }
+    }
+    setDiceState(getDicePlusState())
+    return rollPool(count)
+  }
+
+  async function rollHarmonyCheck() {
+    if (hcResolve <= 0 || rolling) return
+    setRolling(true)
+    const dice = await rollDice(hcResolve)
+    setRolling(false)
     const high = highest(dice)
     setLastHC({ dice, highest: high })
     onRoll({
@@ -256,9 +275,11 @@ export function FusionSheetView({
 
   const poolSize = activeStat?.val ?? 0
 
-  function handleRoll() {
-    if (!activeStat || poolSize <= 0) return
-    const dice    = rollPool(poolSize)
+  async function handleRoll() {
+    if (!activeStat || poolSize <= 0 || rolling) return
+    setRolling(true)
+    const dice    = await rollDice(poolSize)
+    setRolling(false)
     const high    = highest(dice)
     const outcome = getOutcome(high)
     const res     = isResonance(dice)
@@ -422,11 +443,13 @@ export function FusionSheetView({
                 {activeStat && poolSize > 0 && <p className="text-sm text-sl-text">Roll <span className="font-bold text-sl-accent">{poolSize}d6</span> <span className="text-sl-muted text-xs">({activeStat.name})</span></p>}
                 {activeStat && poolSize === 0 && <p className="text-sm text-sl-danger">Stat is 0 — can't roll</p>}
               </div>
-              <button onClick={handleRoll} disabled={!activeStat || poolSize === 0}
-                className="px-4 py-2 rounded bg-sl-accent text-sl-accent-fg text-sm font-bold disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all">
-                Roll
+              <button onClick={handleRoll} disabled={!activeStat || poolSize === 0 || rolling}
+                className="px-4 py-2 rounded bg-sl-accent text-sl-accent-fg text-sm font-bold disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all min-w-[4rem]">
+                {rolling ? '…' : 'Roll'}
               </button>
             </div>
+            {diceState === 'ready' && <p className="text-xs text-sl-muted font-mono">◆ Dice+ active</p>}
+            {rolling && diceState !== 'unavailable' && <p className="text-xs text-sl-muted font-mono animate-pulse">Waiting for Dice+…</p>}
 
             {lastRoll && (
               <div className="bg-sl-surface border border-sl-border rounded p-3 space-y-2">
@@ -699,6 +722,7 @@ export function FusionPanel({ roomId, characterName, characterResonance = 0, onR
   const [npcNames, setNpcNames]             = useState<string[]>([])
   const [formationBond, setFormationBond]   = useState(1)
   const [lastFormation, setLastFormation]   = useState<{ dice: number[]; highest: number } | null>(null)
+  const [formationRolling, setFormationRolling] = useState(false)
 
   useEffect(() => {
     OBR.onReady(async () => {
@@ -727,10 +751,22 @@ export function FusionPanel({ roomId, characterName, characterResonance = 0, onR
 
   const myFusions = fusions.filter(f => f.constituent1 === characterName || f.constituent2 === characterName)
 
-  function rollFormation() {
+  async function rollFormation() {
     const pool = characterResonance + formationBond
-    if (pool <= 0 || !onRoll) return
-    const dice = rollPool(pool)
+    if (pool <= 0 || !onRoll || formationRolling) return
+    setFormationRolling(true)
+    let dice: number[]
+    if (getDicePlusState() !== 'unavailable') {
+      try {
+        const [pid, pname] = await Promise.all([OBR.player.getId(), OBR.player.getName()])
+        dice = (await rollViaDicePlus(pool, pid, pname)) ?? rollPool(pool)
+      } catch {
+        dice = rollPool(pool)
+      }
+    } else {
+      dice = rollPool(pool)
+    }
+    setFormationRolling(false)
     const high = highest(dice)
     setLastFormation({ dice, highest: high })
     onRoll({
@@ -761,7 +797,7 @@ export function FusionPanel({ roomId, characterName, characterResonance = 0, onR
       anchorPosition: { left: 99999, top: 80 },
       anchorOrigin: { horizontal: 'RIGHT', vertical: 'TOP' },
       transformOrigin: { horizontal: 'RIGHT', vertical: 'TOP' },
-      disableClickAway: false,
+      disableClickAway: true,
     })
     setOpenPopovers(prev => new Set(prev).add(fusionId))
   }
@@ -788,9 +824,9 @@ export function FusionPanel({ roomId, characterName, characterResonance = 0, onR
             <input type="number" min={0} max={5} value={formationBond}
               onChange={e => setFormationBond(Math.max(0, Math.min(5, +e.target.value)))}
               className="w-14 bg-sl-bg border border-sl-border rounded px-2 py-1 text-xs text-sl-text text-center focus:outline-none focus:border-sl-accent" />
-            <button onClick={rollFormation} disabled={characterResonance + formationBond <= 0}
+            <button onClick={rollFormation} disabled={characterResonance + formationBond <= 0 || formationRolling}
               className="flex-1 py-1 rounded text-xs font-semibold bg-sl-accent text-sl-accent-fg hover:opacity-90 disabled:opacity-40 transition-colors">
-              Roll {characterResonance + formationBond}d6
+              {formationRolling ? '…' : `Roll ${characterResonance + formationBond}d6`}
             </button>
           </div>
           {lastFormation && (
