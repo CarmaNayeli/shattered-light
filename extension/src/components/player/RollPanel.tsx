@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import OBR from '@owlbear-rodeo/sdk'
 import { rollPool, highest, secondHighest, getOutcome, outcomeLabel, isResonance, countSixes, collateralResult, collateralLabel } from '../../lib/dice'
+import { initDicePlus, getDicePlusState, rollViaDicePlus } from '../../lib/dicePlus'
 import { STAT_KEYS, STAT_NAMES } from '../../lib/character-defaults'
 import type { Character, StatKey } from '../../types/character'
 import type { ChatMessage } from '../../types/chat'
@@ -19,6 +21,10 @@ export function RollPanel({ character, onRoll }: Props) {
   const [lastRoll, setLastRoll]         = useState<{
     dice: number[]; droppedDie?: number; stat: StatKey; bondName?: string
   } | null>(null)
+  const [diceState, setDiceState] = useState(() => getDicePlusState())
+  const [rolling, setRolling]     = useState(false)
+
+  useEffect(() => { initDicePlus() }, [])
 
   const { stats, bonds, formDamage } = character
 
@@ -28,7 +34,6 @@ export function RollPanel({ character, onRoll }: Props) {
   }
 
   function bondDice(): number {
-    // Diamond authority pressure: all bond ratings stack
     if (diamondPressure && activeStat === 'resolve') {
       return bonds.reduce((sum, b) => sum + Math.min(4, b.rating), 0)
     }
@@ -43,12 +48,28 @@ export function RollPanel({ character, onRoll }: Props) {
     return effectiveStat(activeStat) + bondDice()
   }
 
-  function handleRoll() {
-    if (!activeStat) return
-    const pool = poolSize()
-    if (pool <= 0) return
+  async function handleRoll() {
+    if (!activeStat || poolSize() === 0 || rolling) return
+    setRolling(true)
 
-    let rolled = rollPool(modifier !== 'normal' ? pool + 1 : pool)
+    const totalPool = modifier !== 'normal' ? poolSize() + 1 : poolSize()
+    let rawDice: number[]
+
+    if (getDicePlusState() !== 'unavailable') {
+      try {
+        const [pid, pname] = await Promise.all([OBR.player.getId(), OBR.player.getName()])
+        rawDice = (await rollViaDicePlus(totalPool, pid, pname)) ?? rollPool(totalPool)
+      } catch {
+        rawDice = rollPool(totalPool)
+      }
+    } else {
+      rawDice = rollPool(totalPool)
+    }
+
+    setDiceState(getDicePlusState())
+    setRolling(false)
+
+    let rolled = rawDice
     let droppedDie: number | undefined
 
     if (modifier === 'disadvantage') {
@@ -193,15 +214,21 @@ export function RollPanel({ character, onRoll }: Props) {
                 Stat is 0 — add a Bond to roll
               </p>
             )}
+            {diceState === 'ready' && (
+              <p className="text-xs text-sl-muted mt-0.5 font-mono">◆ Dice+ active</p>
+            )}
           </div>
           <button
             onClick={handleRoll}
-            disabled={!activeStat || poolSize() === 0}
-            className="px-4 py-2 rounded bg-sl-accent text-sl-accent-fg text-sm font-bold disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all"
+            disabled={!activeStat || poolSize() === 0 || rolling}
+            className="px-4 py-2 rounded bg-sl-accent text-sl-accent-fg text-sm font-bold disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all min-w-[4rem]"
           >
-            Roll
+            {rolling ? '…' : 'Roll'}
           </button>
         </div>
+        {rolling && diceState !== 'unavailable' && (
+          <p className="text-xs text-sl-muted mt-1 font-mono animate-pulse">Waiting for Dice+…</p>
+        )}
       </div>
 
       {/* Last roll result */}
