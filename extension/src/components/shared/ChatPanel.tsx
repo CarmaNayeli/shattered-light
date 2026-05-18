@@ -46,13 +46,44 @@ function RollMessage({ msg }: { msg: ChatMessage }) {
   )
 }
 
+function parseDiceValues(breakdown: string): number[] {
+  const values: number[] = []
+  for (const m of breakdown.matchAll(/\[([^\]]+)\]/g)) {
+    m[1].split(',').forEach(v => { const n = parseInt(v); if (!isNaN(n)) values.push(n) })
+  }
+  return values
+}
+
+function parseModifier(breakdown: string): number {
+  let mod = 0
+  const withoutGroups = breakdown.replace(/[+-]?\d+d\d+\[[^\]]+\]/g, '')
+  for (const m of (withoutGroups.match(/[+-]\d+/g) ?? [])) mod += parseInt(m)
+  return mod
+}
+
 function ManualRollMessage({ msg }: { msg: ChatMessage }) {
+  const breakdown = msg.breakdown ?? ''
+  const values    = parseDiceValues(breakdown)
+  const modifier  = parseModifier(breakdown)
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-1">
-        <span className="text-xs font-semibold text-sl-text">{msg.formula ?? 'Manual roll'}</span>
+      <span className="text-xs font-semibold text-sl-text">{msg.formula ?? 'Roll'}</span>
+      <div className="flex items-center gap-1 flex-wrap">
+        {values.map((v, i) => (
+          <span key={i} className="w-6 h-6 flex items-center justify-center rounded text-xs font-bold border bg-sl-bg text-sl-muted border-sl-border">
+            {v}
+          </span>
+        ))}
+        {modifier !== 0 && (
+          <span className="text-xs text-sl-muted font-mono">{modifier > 0 ? `+${modifier}` : modifier}</span>
+        )}
+        {values.length > 0 && (
+          <span className="text-xs text-sl-muted font-mono ml-0.5">= <span className="text-sl-text font-bold">{msg.total}</span></span>
+        )}
+        {values.length === 0 && (
+          <span className="text-xs text-sl-muted">{breakdown} = <span className="text-sl-text font-bold">{msg.total}</span></span>
+        )}
       </div>
-      <p className="text-xs text-sl-muted">{msg.breakdown} = <span className="text-sl-text font-bold">{msg.total}</span></p>
     </div>
   )
 }
