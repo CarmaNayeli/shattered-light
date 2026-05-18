@@ -875,6 +875,13 @@ export const STAT_NAMES: Record<StatKey, string> = {
   radiance:  'Radiance',
   resolve:   'Resolve',
 }
+export const STAT_ABBR: Record<StatKey, string> = {
+  form:      'FOR',
+  clarity:   'CLA',
+  resonance: 'RSN',
+  radiance:  'RAD',
+  resolve:   'RSV',
+}
 export const STAT_DESCS: Record<StatKey, string> = {
   form:      'Physical presence and capability. Weapon summoning, combat, endurance.',
   clarity:   'Perception, insight, reading situations and people. Gem-sense.',

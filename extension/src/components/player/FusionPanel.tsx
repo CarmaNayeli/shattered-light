@@ -4,7 +4,9 @@ import { useFusion } from '../../hooks/useFusion'
 import { supabase } from '../../lib/supabase'
 import { rollPool, highest, secondHighest, getOutcome, outcomeLabel, isResonance, countSixes, collateralResult, collateralLabel } from '../../lib/dice'
 import { statAdvanceCost, requiresSignificantMoment } from '../../lib/advancement'
+import { STAT_KEYS, STAT_NAMES, STAT_ABBR } from '../../lib/character-defaults'
 import type { NPC } from '../../lib/character-defaults'
+import type { StatKey } from '../../types/character'
 import type { FusionSheet } from '../../types/fusion'
 import type { ChatMessage } from '../../types/chat'
 
@@ -61,6 +63,10 @@ function NewFusionForm({
   const [const2Sel, setConst2Sel]   = useState('')
   const [customConst2, setCustom]   = useState('')
   const [appearance, setAppearance] = useState('')
+  const [baseGemCount, setBaseGemCount] = useState(2)
+  // constituent stats for formula calculation
+  const [c1Stats, setC1Stats] = useState<Record<StatKey, number>>({ form: 0, clarity: 0, resonance: 0, radiance: 0, resolve: 0 })
+  const [c2Stats, setC2Stats] = useState<Record<StatKey, number>>({ form: 0, clarity: 0, resonance: 0, radiance: 0, resolve: 0 })
   const [s1name, setS1name]         = useState('')
   const [s1val, setS1val]           = useState(2)
   const [s2name, setS2name]         = useState('')
@@ -73,6 +79,10 @@ function NewFusionForm({
 
   const const2 = const2Sel === CUSTOM_VAL ? customConst2 : const2Sel
 
+  function derivedStat(key: StatKey): number {
+    return Math.round((c1Stats[key] + c2Stats[key]) / 2 + baseGemCount)
+  }
+
   function save() {
     if (!name.trim() || !const2.trim()) return
     onSave({
@@ -81,6 +91,14 @@ function NewFusionForm({
       constituent1: characterName,
       constituent2: const2.trim(),
       appearance: appearance.trim(),
+      baseGemCount,
+      baseStats: {
+        form:      derivedStat('form'),
+        clarity:   derivedStat('clarity'),
+        resonance: derivedStat('resonance'),
+        radiance:  derivedStat('radiance'),
+        resolve:   derivedStat('resolve'),
+      },
       stats: { stat1Name: s1name, stat1Value: s1val, stat2Name: s2name, stat2Value: s2val, stat3Name: s3name, stat3Value: s3val },
       harmony: 5,
       signatureMove1: move1.trim(),
@@ -132,6 +150,40 @@ function NewFusionForm({
         </div>
       </div>
       <div><label className={lbl}>Appearance</label><textarea className={`${inp} resize-none`} rows={2} value={appearance} onChange={e => setAppearance(e.target.value)} placeholder="What does this fusion look like?" /></div>
+
+      {/* Base stats — constituent inputs + formula */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <p className={`${lbl} mb-0`}>Base stats</p>
+          <span className="text-xs text-sl-muted/60 font-mono">round(avg + </span>
+          <input type="number" min={2} max={10} value={baseGemCount}
+            onChange={e => setBaseGemCount(Math.max(2, +e.target.value))}
+            className="w-10 bg-sl-bg border border-sl-border rounded px-1 py-0.5 text-xs text-sl-text text-center focus:outline-none focus:border-sl-accent" />
+          <span className="text-xs text-sl-muted/60 font-mono">gems)</span>
+        </div>
+        <div className="grid grid-cols-5 gap-1 text-center">
+          {STAT_KEYS.map(k => (
+            <div key={k} className="text-xs text-sl-muted font-mono">{STAT_ABBR[k]}</div>
+          ))}
+          {STAT_KEYS.map(k => (
+            <input key={k} type="number" min={0} max={5} value={c1Stats[k]}
+              onChange={e => setC1Stats(s => ({ ...s, [k]: Math.max(0, Math.min(5, +e.target.value)) }))}
+              className="w-full bg-sl-bg border border-sl-border rounded px-0 py-1 text-xs text-sl-text text-center focus:outline-none focus:border-sl-accent" />
+          ))}
+          <div className="col-span-5 text-xs text-sl-muted text-center font-mono">↑ {characterName}</div>
+          {STAT_KEYS.map(k => (
+            <input key={k} type="number" min={0} max={5} value={c2Stats[k]}
+              onChange={e => setC2Stats(s => ({ ...s, [k]: Math.max(0, Math.min(5, +e.target.value)) }))}
+              className="w-full bg-sl-bg border border-sl-border rounded px-0 py-1 text-xs text-sl-text text-center focus:outline-none focus:border-sl-accent" />
+          ))}
+          <div className="col-span-5 text-xs text-sl-muted text-center font-mono">↑ {const2 || 'Constituent 2'}</div>
+          {STAT_KEYS.map(k => (
+            <div key={k} className="py-1 rounded border border-sl-accent/30 bg-sl-accent/5 text-xs font-bold text-sl-accent text-center">{derivedStat(k)}</div>
+          ))}
+          <div className="col-span-5 text-xs text-sl-muted text-center font-mono">↑ Result (editable after save)</div>
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <p className={lbl}>Three unique stats (name + value 0–5)</p>
         <div className={row}><input className={sinp} value={s1name} onChange={e => setS1name(e.target.value)} placeholder="Stat 1 name" /><input type="number" min={0} max={5} className={ninp} value={s1val} onChange={e => setS1val(+e.target.value)} /></div>
@@ -166,7 +218,7 @@ export function FusionSheetView({
   onRoll: (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'playerId' | 'playerName'>) => void
 }) {
   const [tab, setTab]               = useState<FusionTab>('roll')
-  const [activeStat, setActiveStat] = useState<1 | 2 | 3 | null>(null)
+  const [activeStat, setActiveStat] = useState<{ name: string; val: number } | null>(null)
   const [lastRoll, setLastRoll]     = useState<{ dice: number[]; label: string } | null>(null)
   const [editing, setEditing]       = useState(false)
   const [editDraft, setEditDraft]   = useState<FusionSheet>(fusion)
@@ -194,23 +246,28 @@ export function FusionSheetView({
   function cancelEdit() { setEditing(false) }
   function saveEdit() { onUpdate(editDraft); setEditing(false) }
 
-  const stats = [
-    { idx: 1 as const, name: fusion.stats.stat1Name, val: fusion.stats.stat1Value },
-    { idx: 2 as const, name: fusion.stats.stat2Name, val: fusion.stats.stat2Value },
-    { idx: 3 as const, name: fusion.stats.stat3Name, val: fusion.stats.stat3Value },
+  const base = fusion.baseStats ?? { form: 0, clarity: 0, resonance: 0, radiance: 0, resolve: 0 }
+
+  const customStats = [
+    { key: 'c1', name: fusion.stats.stat1Name, val: fusion.stats.stat1Value },
+    { key: 'c2', name: fusion.stats.stat2Name, val: fusion.stats.stat2Value },
+    { key: 'c3', name: fusion.stats.stat3Name, val: fusion.stats.stat3Value },
   ].filter(s => s.name.trim())
 
-  const activeStatDef = activeStat ? stats.find(s => s.idx === activeStat) : null
-  const poolSize = activeStatDef?.val ?? 0
+  const poolSize = activeStat?.val ?? 0
 
   function handleRoll() {
-    if (!activeStatDef || poolSize <= 0) return
+    if (!activeStat || poolSize <= 0) return
     const dice    = rollPool(poolSize)
     const high    = highest(dice)
     const outcome = getOutcome(high)
     const res     = isResonance(dice)
-    setLastRoll({ dice, label: activeStatDef.name })
-    onRoll({ type: 'roll_pool', rollLabel: `${fusion.name} — ${activeStatDef.name}`, dice, highest: high, outcome, isResonance: res, collateral: secondHighest(dice) })
+    setLastRoll({ dice, label: activeStat.name })
+    onRoll({ type: 'roll_pool', rollLabel: `${fusion.name} — ${activeStat.name}`, dice, highest: high, outcome, isResonance: res, collateral: secondHighest(dice) })
+  }
+
+  function toggleStat(name: string, val: number) {
+    setActiveStat(prev => prev?.name === name ? null : { name, val })
   }
 
 
@@ -238,7 +295,31 @@ export function FusionSheetView({
         </div>
         <div><label className={lblEdit}>Appearance</label><textarea className={taEdit} rows={2} value={editDraft.appearance} onChange={e => setEditDraft(d => ({ ...d, appearance: e.target.value }))} /></div>
         <div className="space-y-1.5">
-          <p className={lblEdit}>Stats (name + value 0–5)</p>
+          <div className="flex items-center gap-2">
+            <p className={`${lblEdit} mb-0`}>Base gem count</p>
+            <input type="number" min={2} max={10}
+              value={editDraft.baseGemCount ?? 2}
+              onChange={e => setEditDraft(d => ({ ...d, baseGemCount: Math.max(2, +e.target.value) }))}
+              className={`${numEdit} w-14`} />
+          </div>
+          <p className={lblEdit}>Standard stats (FOR / CLA / RSN / RAD / RSV)</p>
+          <div className="grid grid-cols-5 gap-1">
+            {STAT_KEYS.map(k => (
+              <div key={k} className="space-y-0.5">
+                <div className="text-xs text-sl-muted font-mono text-center">{STAT_ABBR[k]}</div>
+                <input type="number" min={0} max={9}
+                  value={(editDraft.baseStats ?? { form:0,clarity:0,resonance:0,radiance:0,resolve:0 })[k]}
+                  onChange={e => setEditDraft(d => ({
+                    ...d,
+                    baseStats: { ...(d.baseStats ?? { form:0,clarity:0,resonance:0,radiance:0,resolve:0 }), [k]: Math.max(0, Math.min(9, +e.target.value)) },
+                  }))}
+                  className={`${numEdit} w-full`} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <p className={lblEdit}>Fusion stats (name + value 0–5)</p>
           {([1,2,3] as const).map(idx => {
             const nameKey = `stat${idx}Name` as 'stat1Name'|'stat2Name'|'stat3Name'
             const valKey  = `stat${idx}Value` as 'stat1Value'|'stat2Value'|'stat3Value'
@@ -296,25 +377,49 @@ export function FusionSheetView({
 
         {tab === 'roll' && (
           <>
-            <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Choose a stat to roll</p>
-            <div className="grid grid-cols-3 gap-2">
-              {stats.map(s => (
-                <button key={s.idx} onClick={() => setActiveStat(activeStat === s.idx ? null : s.idx)}
-                  className={`flex flex-col items-center py-2 rounded border transition-all
-                    ${activeStat === s.idx
-                      ? 'bg-sl-accent text-sl-accent-fg border-sl-accent'
-                      : 'bg-sl-surface border-sl-border text-sl-text hover:border-sl-accent'}`}>
-                  <span className="text-lg font-bold leading-none">{s.val}</span>
-                  <span className="text-xs mt-0.5 font-mono truncate w-full text-center px-1">{s.name}</span>
-                </button>
-              ))}
+            <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Standard stats</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {STAT_KEYS.map(k => {
+                const val = base[k]
+                const active = activeStat?.name === STAT_NAMES[k]
+                return (
+                  <button key={k} onClick={() => toggleStat(STAT_NAMES[k], val)}
+                    className={`flex flex-col items-center py-2 rounded border transition-all
+                      ${active
+                        ? 'bg-sl-accent text-sl-accent-fg border-sl-accent'
+                        : 'bg-sl-surface border-sl-border text-sl-text hover:border-sl-accent'}`}>
+                    <span className="text-lg font-bold leading-none">{val}</span>
+                    <span className="text-xs mt-0.5 font-mono">{STAT_ABBR[k]}</span>
+                  </button>
+                )
+              })}
             </div>
+            {customStats.length > 0 && (
+              <>
+                <p className="text-xs text-sl-muted font-mono uppercase tracking-wide">Fusion stats</p>
+                <div className={`grid gap-2 ${customStats.length === 1 ? 'grid-cols-1' : customStats.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  {customStats.map(s => {
+                    const active = activeStat?.name === s.name
+                    return (
+                      <button key={s.key} onClick={() => toggleStat(s.name, s.val)}
+                        className={`flex flex-col items-center py-2 rounded border transition-all
+                          ${active
+                            ? 'bg-sl-accent text-sl-accent-fg border-sl-accent'
+                            : 'bg-sl-surface border-sl-border text-sl-text hover:border-sl-accent'}`}>
+                        <span className="text-lg font-bold leading-none">{s.val}</span>
+                        <span className="text-xs mt-0.5 font-mono">{s.name.slice(0, 3).toUpperCase()}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
 
 
             <div className="flex items-center gap-3 border-t border-sl-border pt-2">
               <div className="flex-1">
                 {!activeStat && <p className="text-sm text-sl-muted">Select a stat above</p>}
-                {activeStat && poolSize > 0 && <p className="text-sm text-sl-text">Roll <span className="font-bold text-sl-accent">{poolSize}d6</span></p>}
+                {activeStat && poolSize > 0 && <p className="text-sm text-sl-text">Roll <span className="font-bold text-sl-accent">{poolSize}d6</span> <span className="text-sl-muted text-xs">({activeStat.name})</span></p>}
                 {activeStat && poolSize === 0 && <p className="text-sm text-sl-danger">Stat is 0 — can't roll</p>}
               </div>
               <button onClick={handleRoll} disabled={!activeStat || poolSize === 0}

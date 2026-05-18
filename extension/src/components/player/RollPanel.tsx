@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import OBR from '@owlbear-rodeo/sdk'
 import { rollPool, highest, secondHighest, getOutcome, outcomeLabel, isResonance, countSixes, collateralResult, collateralLabel } from '../../lib/dice'
 import { initDicePlus, getDicePlusState, rollViaDicePlus } from '../../lib/dicePlus'
-import { STAT_KEYS, STAT_NAMES } from '../../lib/character-defaults'
+import { STAT_KEYS, STAT_NAMES, STAT_ABBR } from '../../lib/character-defaults'
 import type { Character, StatKey } from '../../types/character'
 import type { ChatMessage } from '../../types/chat'
 
@@ -132,7 +132,7 @@ export function RollPanel({ character, onRoll }: Props) {
                   }`}
               >
                 <span className="text-lg font-bold leading-none">{eff}</span>
-                <span className="text-xs mt-0.5 font-mono">{STAT_NAMES[stat].slice(0, 3).toUpperCase()}</span>
+                <span className="text-xs mt-0.5 font-mono">{STAT_ABBR[stat]}</span>
                 {damaged && <span className="text-xs text-sl-danger leading-none">-{formDamage}</span>}
               </button>
             )
