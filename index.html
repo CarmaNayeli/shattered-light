@@ -138,11 +138,12 @@
       margin-top: 1.5rem;
     }
     .card {
-      background: var(--surface);
+      background: #EEF3F3;
       border-radius: 10px;
       padding: 1.25rem;
       border-top: 4px solid var(--blue);
     }
+    .card.white  { border-top-color: #ffffff; }
     .card.yellow { border-top-color: var(--yellow); }
     .card.pink   { border-top-color: var(--pink); }
     .card.indigo { border-top-color: var(--indigo); }
@@ -308,6 +309,10 @@
         <h3>Fusion</h3>
         <p>Two Gems can fuse into a new being with its own stats and moves. Track Harmony — it drops on disagreement and recovers through connection scenes.</p>
       </div>
+      <div class="card white">
+        <h3>Form Damage</h3>
+        <p>Hits mark one of four damage boxes, reducing your effective Form stat. All four marked and you poof — retreating to gem until you recover.</p>
+      </div>
     </div>
   </section>
 
@@ -353,7 +358,7 @@
     <div style="margin-top:1.5rem;">
       <h2>The Five Stats</h2>
       <div class="grid">
-        <div class="card"><h3>Form</h3><p>Physical capability, combat, and endurance. Form Damage chips away at this stat during fights.</p></div>
+        <div class="card white"><h3>Form</h3><p>Physical capability, combat, and endurance. Form Damage chips away at this stat during fights.</p></div>
         <div class="card yellow"><h3>Clarity</h3><p>Awareness, analysis, memory, and reading other gems or situations.</p></div>
         <div class="card"><h3>Resonance</h3><p>Emotional attunement, empathy, and connection across the bond between beings.</p></div>
         <div class="card pink"><h3>Radiance</h3><p>Expression, creativity, performance, and the gem's unique light.</p></div>
